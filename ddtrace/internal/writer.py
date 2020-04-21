@@ -5,6 +5,8 @@ import random
 import time
 import sys
 
+from ddtrace_shared import Writer as NativeWriter  # noqa:F401
+
 from .. import api
 from .. import compat
 from .. import _worker
@@ -331,3 +333,5 @@ class Q(Queue):
         things = self.queue
         self._init(self.maxsize)
         return things
+
+

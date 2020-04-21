@@ -294,11 +294,11 @@ class Span(NativeSpan):
         if self.duration_ns:
             d["duration"] = self.duration_ns
 
-        if self.meta:
-            d["meta"] = self.meta
+        # if self.meta:
+        #     d["meta"] = self.meta
 
-        if self.metrics:
-            d["metrics"] = self.metrics
+        # if self.metrics:
+        #     d["metrics"] = self.metrics
 
         if self.span_type:
             d["type"] = self.span_type
@@ -360,7 +360,7 @@ class Span(NativeSpan):
             ("tags", ""),
         ]
 
-        lines.extend((" ", "%s:%s" % kv) for kv in sorted(self.meta.items()))
+        # lines.extend((" ", "%s:%s" % kv) for kv in sorted(self.meta.items()))
         return "\n".join("%10s %s" % l for l in lines)
 
     @property

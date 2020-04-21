@@ -78,7 +78,7 @@ class RateByServiceSampler(BaseSampler, BasePrioritySampler):
         """Compute a key with the same format used by the Datadog agent API."""
         service = service or ''
         env = env or ''
-        return 'service:' + service + ',env:' + env
+        return 'service:{},env:{}'.format(service, env)
 
     def __init__(self, sample_rate=1):
         self.sample_rate = sample_rate

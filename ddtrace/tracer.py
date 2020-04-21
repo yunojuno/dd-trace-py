@@ -9,7 +9,7 @@ from .ext import system
 from .ext.priority import AUTO_REJECT, AUTO_KEEP
 from .internal.logger import get_logger
 from .internal.runtime import RuntimeTags, RuntimeWorker
-from .internal.writer import AgentWriter, LogWriter
+from .internal.writer import AgentWriter, LogWriter, NativeWriter
 from .provider import DefaultContextProvider
 from .context import Context
 from .sampler import DatadogSampler, RateSampler, RateByServiceSampler
@@ -18,6 +18,7 @@ from .span import Span
 from .utils.formats import get_env
 from .utils.deprecation import deprecated, RemovedInDDTrace10Warning
 from .vendor.dogstatsd import DogStatsd
+from .version import version as ddtrace_version
 from . import compat
 
 
@@ -95,25 +96,7 @@ class Tracer(object):
         if self._is_agentless_environment() and url is None:
             writer = LogWriter()
         else:
-            if url is None:
-                url = self.DEFAULT_AGENT_URL
-            url_parsed = compat.parse.urlparse(url)
-            if url_parsed.scheme in ('http', 'https'):
-                hostname = url_parsed.hostname
-                port = url_parsed.port
-                https = url_parsed.scheme == 'https'
-                # FIXME This is needed because of the way of configure() works right now, where it considers `port=None`
-                # to be "no port set so let's use the default".
-                # It should go away when we remove configure()
-                if port is None:
-                    if https:
-                        port = 443
-                    else:
-                        port = 80
-            elif url_parsed.scheme == 'unix':
-                uds_path = url_parsed.path
-            else:
-                raise ValueError('Unknown scheme `%s` for agent URL' % url_parsed.scheme)
+            writer = NativeWriter(ddtrace_version=ddtrace_version or "dev", agent_url=url or self.DEFAULT_AGENT_URL)
 
         # Apply the default configuration
         self.configure(

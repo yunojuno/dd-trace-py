@@ -1,5 +1,3 @@
-import pkg_resources
-
 # Always import and patch import hooks before loading anything else
 from .internal.import_hooks import patch as patch_import_hooks
 patch_import_hooks()  # noqa: E402
@@ -10,12 +8,8 @@ from .span import Span
 from .tracer import Tracer
 from .settings import config
 from .utils.deprecation import deprecated
+from .version import version as __version__  # noqa:F401
 
-try:
-    __version__ = pkg_resources.get_distribution(__name__).version
-except pkg_resources.DistributionNotFound:
-    # package is not installed
-    __version__ = None
 
 
 # a global tracer instance with integration settings
