@@ -30,7 +30,7 @@ else:
 
 
 class Span(NativeSpan):
-    __slots__ = ["_context", "_parent", "tracer", "meta", "metrics", "start_ns", "duration_ns", "sampled"]
+    __slots__ = ["_context", "_parent", "tracer", "start_ns", "duration_ns", "sampled"]
 
     def __new__(
         cls,
@@ -82,10 +82,6 @@ class Span(NativeSpan):
         start=None,
         context=None,
     ):
-        # tags / metatdata
-        self.meta = {}
-        self.metrics = {}
-
         # timing
         self.start_ns = time_ns() if start is None else int(start * 1e9)
         self.duration_ns = None
