@@ -293,7 +293,7 @@ venv = Venv(
         ),
         Venv(
             name="celery",
-            command="pytest tests/contrib/celery",
+            command="pytest {cmdargs} tests/contrib/celery",
             venvs=[
                 Venv(
                     pys=select_pys(max_version=3.6),
