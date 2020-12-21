@@ -291,5 +291,67 @@ venv = Venv(
             pys=select_pys(min_version=3.6),
             command="pytest tests/contrib/asgi",
         ),
+        Venv(
+            name="celery",
+            command="pytest tests/contrib/celery",
+            venvs=[
+                Venv(
+                    pys=select_pys(max_version=3.6),
+                    pkgs={
+                        "redis": "~=2.10.0",
+                    },
+                    venvs=[
+                        # Non-4.x celery should be able to use the older redis lib, since it locks to an older kombu
+                        Venv(
+                            pkgs={
+                                "celery": "~=3.1.0",
+                            }
+                        ),
+                        # 4.x celery bumps kombu to 4.4+, which requires redis 3.2 or later, this tests against
+                        # older redis with an older kombu
+                        # https://github.com/celery/kombu/blob/3e60e6503a77b9b1a987cf7954659929abac9bac/Changelog#L35
+                        # Celery 4.2 is now limited to Kombu 4.3
+                        # https://github.com/celery/celery/commit/1571d414461f01ae55be63a03e2adaa94dbcb15d
+                        Venv(
+                            pkgs={
+                                "celery": ["~=4.0.0", "~=4.1.0", "~=4.2.0"],
+                                "kombu": "~=4.3.0",
+                                "pytest": "~=3.0",
+                            }
+                        ),
+                    ],
+                ),
+                Venv(
+                    pys=select_pys(max_version=3.6),
+                    # 4.x celery bumps kombu to 4.4+, which requires redis 3.2 or later, this tests against
+                    # newer kombu/newer redis.
+                    # https://github.com/celery/kombu/blob/3e60e6503a77b9b1a987cf7954659929abac9bac/Changelog#L35
+                    pkgs={
+                        "redis": ">=3.2",
+                        "celery": ["~=4.0.0", "~=4.1.0"],
+                        "kombu": ">=4.4,<5.0",
+                        "pytest": "~=3.0",
+                    },
+                ),
+                Venv(
+                    pys=select_pys(),
+                    # Celery 4.3 wants Kombu >= 4.4 and Redis >= 3.2
+                    # Python 3.7 needs Celery 4.3
+                    # TODO: celery43: vine==1.3
+                    pkgs={
+                        "redis": ">=3.2",
+                        "celery": ["~=4.3.0", "~=4.4.0"],
+                        "kombu": ">=4.4,<5.0",
+                    },
+                ),
+                Venv(
+                    pys=select_pys(min_version=3.6),
+                    pkgs={
+                        "redis": ">=3.2",
+                        "celery": ["~=5.0.0", latest],
+                    },
+                ),
+            ],
+        ),
     ],
 )
