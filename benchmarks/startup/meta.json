@@ -1,0 +1,16 @@
+{
+  "name": "startup",
+  "cachegrind": true,
+  "iterations": 20,
+  "variants": {
+    "control": {
+      "run": "python -c \"\""
+    },
+    "ddtrace_import": {
+      "run": "python -c \"import ddtrace\""
+    },
+    "ddtrace_patch_all":{
+      "run": "python -c \"import ddtrace; ddtrace.patch_all()\""
+    }
+  }
+}
