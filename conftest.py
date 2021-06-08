@@ -6,16 +6,19 @@ Local plugins: https://docs.pytest.org/en/3.10.1/writing_plugins.html#local-conf
 Hook reference: https://docs.pytest.org/en/3.10.1/reference.html#hook-reference
 """
 import os
+import platform
 import re
 import sys
 
 import pytest
+
 
 # DEV: Enable "testdir" fixture https://docs.pytest.org/en/stable/reference.html#testdir
 pytest_plugins = ("pytester",)
 
 PY_DIR_PATTERN = re.compile(r"^py[23][0-9]$")
 
+PYTEST_VERSION = tuple(int(_) for _ in pytest.__version__.split("."))
 
 # Hook for dynamic configuration of pytest in CI
 # https://docs.pytest.org/en/6.2.1/reference.html#pytest.hookspec.pytest_configure
@@ -71,3 +74,29 @@ def pytest_ignore_collect(path, config):
             # If the current Python version does not meet the minimum required, skip this directory
             if sys.version_info[0:2] < min_required:
                 outcome.force_result(True)
+
+
+def _record(func):
+    # Add global tags to JUnit xml report
+    # https://github.com/DataDog/datadog-ci-spec/tree/5abd6433b77c3131e2a387a76c7ff23b19c2e3c4/spec/citest
+    func("language", "python")
+    func("os.architecture", platform.machine())
+    func("os.platform", platform.system())
+    func("os.version", platform.release())
+    func("runtime.name", platform.python_implementation())
+    func("runtime.version", platform.python_version())
+
+
+# DEV: record_testsuite_property was added in 4.5, we run some tests with pytest<4
+if PYTEST_VERSION > (4, 5, 0):
+
+    @pytest.fixture(scope="session", autouse=True)
+    def setup_junit_testsuite_properties(record_testsuite_property):
+        _record(record_testsuite_property)
+
+
+else:
+
+    @pytest.fixture(autouse=True)
+    def setup_junit_testsuite_properties(record_property):
+        _record(record_property)
