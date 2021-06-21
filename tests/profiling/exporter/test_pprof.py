@@ -329,6 +329,8 @@ TEST_EVENTS = {
             thread_native_id=123987,
             thread_name="MainThread",
             trace_id=1322219321,
+            trace_resource="myresource",
+            trace_type="http",
             frames=[
                 ("foobar.py", 23, "func1"),
                 ("foobar.py", 44, "func2"),
@@ -346,6 +348,8 @@ TEST_EVENTS = {
             thread_native_id=123987,
             thread_name="MainThread",
             trace_id=1322219321,
+            trace_resource="notme",
+            trace_type="sql",
             frames=[
                 ("foobar.py", 23, "func1"),
                 ("foobar.py", 44, "func2"),
@@ -450,6 +454,8 @@ TEST_EVENTS = {
             ],
             trace_id=23435,
             span_id=345432,
+            trace_resource="myresource",
+            trace_type="http",
             nframes=3,
             wait_time_ns=74839,
             sampling_pct=10,
@@ -459,6 +465,8 @@ TEST_EVENTS = {
             timestamp=2,
             thread_id=67892304,
             thread_name="MainThread",
+            trace_resource="notme",
+            trace_type="sql",
             frames=[
                 ("foobar.py", 23, "func1"),
                 ("foobar.py", 44, "func2"),
