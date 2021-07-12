@@ -9,6 +9,7 @@ import os
 import platform
 import re
 import sys
+from time import time
 
 import pytest
 
@@ -33,6 +34,11 @@ def pytest_configure(config):
         fname, ext = os.path.splitext(config.option.xmlpath)
         # DEV: `ext` will contain the `.`, e.g. `.xml`
         config.option.xmlpath = "{0}.{1}{2}".format(fname, os.getpid(), ext)
+
+    # Save per-interpreter benchmark results.
+    if config.pluginmanager.hasplugin("benchmark"):
+        gc = "_nogc" if config.option.benchmark_disable_gc else ""
+        config.option.benchmark_save = str(time()).replace(".", "_") + gc + "_py%d_%d" % sys.version_info[:2]
 
 
 # Determine if the folder should be ignored

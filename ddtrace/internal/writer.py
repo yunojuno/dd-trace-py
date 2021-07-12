@@ -3,7 +3,6 @@ from collections import defaultdict
 from json import loads
 import logging
 import sys
-import threading
 from typing import List
 from typing import Optional
 from typing import TYPE_CHECKING
@@ -22,6 +21,7 @@ from . import service
 from ..constants import KEEP_SPANS_RATE_KEY
 from ..sampler import BasePrioritySampler
 from ..sampler import BaseSampler
+from ..utils.formats import get_env
 from ..utils.time import StopWatch
 from .agent import get_connection
 from .buffer import BufferFull
@@ -47,6 +47,29 @@ LOG_ERR_INTERVAL = 60
 # 2s timeout, the java tracer has a 10s timeout, so we set the window size
 # to 10 buckets of 1s duration.
 DEFAULT_SMA_WINDOW = 10
+
+DEFAULT_BUFFER_SIZE = 8 * 1000000  # 8mb
+DEFAULT_MAX_PAYLOAD_SIZE = 8 * 1000000  # 8mb
+DEFAULT_PROCESSING_INTERVAL = 1.0
+
+
+def get_writer_buffer_size():
+    # type: () -> int
+    return int(get_env("trace", "writer_buffer_size_bytes", default=DEFAULT_BUFFER_SIZE))  # type: ignore[arg-type]
+
+
+def get_writer_max_payload_size():
+    # type: () -> int
+    return int(
+        get_env("trace", "writer_max_payload_size_bytes", default=DEFAULT_MAX_PAYLOAD_SIZE)  # type: ignore[arg-type]
+    )
+
+
+def get_writer_interval_seconds():
+    # type: () -> float
+    return float(
+        get_env("trace", "writer_interval_seconds", default=DEFAULT_PROCESSING_INTERVAL)  # type: ignore[arg-type]
+    )
 
 
 def _human_size(nbytes):
@@ -201,12 +224,12 @@ class AgentWriter(periodic.PeriodicService, TraceWriter):
         agent_url,  # type: str
         sampler=None,  # type: Optional[BaseSampler]
         priority_sampler=None,  # type: Optional[BasePrioritySampler]
-        processing_interval=1.0,  # type: float
+        processing_interval=get_writer_interval_seconds(),  # type: float
         # Match the payload size since there is no functionality
         # to flush dynamically.
-        buffer_size=8 * 1000000,  # type: int
-        max_payload_size=8 * 1000000,  # type: int
-        timeout=agent.DEFAULT_TIMEOUT,  # type: float
+        buffer_size=get_writer_buffer_size(),  # type: int
+        max_payload_size=get_writer_max_payload_size(),  # type: int
+        timeout=agent.get_trace_agent_timeout(),  # type: float
         dogstatsd=None,  # type: Optional[DogStatsd]
         report_metrics=False,  # type: bool
         sync_mode=False,  # type: bool
@@ -243,7 +266,6 @@ class AgentWriter(periodic.PeriodicService, TraceWriter):
         self._encoder = Encoder()
         self._headers.update({"Content-Type": self._encoder.content_type})
 
-        self._started_lock = threading.Lock()
         self.dogstatsd = dogstatsd
         self._report_metrics = report_metrics
         self._metrics_reset()
@@ -379,7 +401,8 @@ class AgentWriter(periodic.PeriodicService, TraceWriter):
         if self._sync_mode is False:
             # Start the AgentWriter on first write.
             try:
-                self.start()
+                if self.status != service.ServiceStatus.RUNNING:
+                    self.start()
             except service.ServiceStatusError:
                 pass
 
