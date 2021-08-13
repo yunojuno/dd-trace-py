@@ -1091,5 +1091,10 @@ venv = Venv(
             ],
             command="pytest {cmdargs} tests/contrib/jinja2",
         ),
+        Venv(
+            name="memory_leak",
+            pys=select_pys(min_version="3.6"),
+            command="pytest {cmdargs} tests/memory_leak",
+        ),
     ],
 )
