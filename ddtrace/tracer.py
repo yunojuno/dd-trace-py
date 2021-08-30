@@ -567,7 +567,7 @@ class Tracer(object):
             )
             span._local_root = span
             if config.report_hostname:
-                span.meta[HOSTNAME_KEY] = hostname.get_hostname()
+                span._set_str_tag(HOSTNAME_KEY, hostname.get_hostname())
             span.sampled = self.sampler.sample(span)
             # Old behavior
             # DEV: The new sampler sets metrics and priority sampling on the span for us
@@ -596,8 +596,8 @@ class Tracer(object):
                 span.sampled = True
 
         if not span._parent:
-            span.meta["runtime-id"] = get_runtime_id()
-            span.metrics[system.PID] = self._pid
+            span._set_str_tag("runtime-id", get_runtime_id())
+            span.set_metric(system.PID, self._pid)
 
         # Apply default global tags.
         if self.tags:

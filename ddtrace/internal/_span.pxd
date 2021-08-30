@@ -1,3 +1,5 @@
+from libcpp.map cimport map
+
 cdef class Span:
     cdef unsigned long long c_trace_id
     cdef unsigned long long c_span_id
@@ -9,3 +11,5 @@ cdef class Span:
     cdef bint c_error
     cdef unsigned long long c_start_ns
     cdef unsigned long long c_duration_ns
+    cdef map[char*, char*] c_meta
+    cdef map[char*, long long] c_metrics

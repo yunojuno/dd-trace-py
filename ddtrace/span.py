@@ -55,8 +55,6 @@ class Span(NativeSpan):
 
     __slots__ = [
         # Public span attributes
-        "meta",
-        "metrics",
         "tracer",
         # Sampler attributes
         "sampled",
@@ -119,9 +117,7 @@ class Span(NativeSpan):
         self.span_type = span_type
 
         # tags / metadata
-        self.meta = {}  # type: _MetaDictType
         self.error = 0
-        self.metrics = {}  # type: _MetricDictType
 
         # timing
         self.start_ns = time_ns() if start is None else int(start * 1e9)
@@ -297,9 +293,9 @@ class Span(NativeSpan):
             return
 
         try:
-            self.meta[key] = stringify(value)
-            if key in self.metrics:
-                del self.metrics[key]
+            super(Span, self).set_tag(key, stringify(value))
+            if super(Span, self).get_metric(key) is not None:
+                super(Span, self).set_metric(key, None)
         except Exception:
             log.warning("error setting tag %s, ignoring it", key, exc_info=True)
 
@@ -310,7 +306,7 @@ class Span(NativeSpan):
         U+FFFD.
         """
         try:
-            self.meta[key] = ensure_text(value, errors="replace")
+            super(Span, self).set_tag(key, ensure_text(value, errors="replace"))
         except Exception as e:
             if config._raise:
                 raise e
@@ -318,13 +314,12 @@ class Span(NativeSpan):
 
     def _remove_tag(self, key):
         # type: (_TagNameType) -> None
-        if key in self.meta:
-            del self.meta[key]
+        super(Span, self).set_tag(key, None)
 
     def get_tag(self, key):
         # type: (_TagNameType) -> Optional[Text]
         """Return the given tag or None if it doesn't exist."""
-        return self.meta.get(key, None)
+        return super(Span, self).get_tag(key)
 
     def set_tags(self, tags):
         # type: (_MetaDictType) -> None
@@ -372,9 +367,9 @@ class Span(NativeSpan):
             log.debug("ignoring not real metric %s:%s", key, value)
             return
 
-        if key in self.meta:
-            del self.meta[key]
-        self.metrics[key] = value
+        if super(Span, self).get_tag(key) is not None:
+            super(Span, self).set_tag(key, None)
+        super(Span, self).set_metric(key, value)
 
     def set_metrics(self, metrics):
         # type: (_MetricDictType) -> None
@@ -384,7 +379,7 @@ class Span(NativeSpan):
 
     def get_metric(self, key):
         # type: (_TagNameType) -> Optional[NumericType]
-        return self.metrics.get(key)
+        return super(Span, self).get_metric(key)
 
     def to_dict(self):
         # type: () -> Dict[str, Any]

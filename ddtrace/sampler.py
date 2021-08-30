@@ -100,9 +100,9 @@ class RateByServiceSampler(BasePrioritySampler):
     ):
         # type: (...) -> str
         """Compute a key with the same format used by the Datadog agent API."""
-        service = service or ""
-        env = env or ""
-        return "service:" + service + ",env:" + env
+        service = service or b""
+        env = env or b""
+        return b"service:" + service + b",env:" + env
 
     def __init__(self, sample_rate=1.0):
         # type: (float) -> None
