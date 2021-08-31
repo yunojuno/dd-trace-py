@@ -114,6 +114,8 @@ cdef class Span:
         if value is None:
             self.c_duration_ns = 0
         else:
+            if value < 0:
+                raise ValueError("Span duration cannot be less than 0 nanoseconds")
             self.c_duration_ns = value
 
     def set_tag(self, object key, object value):

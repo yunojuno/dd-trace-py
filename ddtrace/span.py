@@ -208,7 +208,8 @@ class Span(NativeSpan):
 
         ft = time_ns() if finish_time is None else int(finish_time * 1e9)
         # be defensive so we don't die if start isn't set
-        self.duration_ns = ft - (self.start_ns or ft)
+        # ensure we never set duration to a negative number
+        self.duration_ns = max(ft - (self.start_ns or ft), 0)
 
         for cb in self._on_finish_callbacks:
             cb(self)
