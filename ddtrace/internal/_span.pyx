@@ -1,34 +1,10 @@
 from cpython cimport *
 from cpython.bytearray cimport PyByteArray_Check
 from cython.operator import dereference
-from libc.stdlib cimport malloc
+from libc.stdlib cimport free
 from libc.string cimport strcpy, strlen
+from ._c_utils cimport PyObject_Copy_Str
 
-
-cdef char* object_to_cstr(object value):
-    cdef char* c_value
-    cdef Py_ssize_t n
-
-    if value is None:
-        return NULL
-    elif PyBytes_Check(value) or PyByteArray_Check(value):
-        return value
-    elif PyUnicode_Check(value):
-        n = len(value)
-        c_value = <char*> malloc((n + 1) * sizeof(char))
-        if not c_value:
-            return NULL
-        strcpy(c_value, value)
-        return c_value
-    else:
-        value = str(value).encode("utf-8")
-
-        n = len(value)
-        c_value = <char*> malloc((n + 1) * sizeof(char))
-        if not c_value:
-            return NULL
-        strcpy(c_value, value)
-        return c_value
 
 cdef class Span:
 
@@ -67,10 +43,7 @@ cdef class Span:
 
     @service.setter
     def service(self, object value):
-        cdef char* service
-        service = object_to_cstr(value)
-        print(service)
-        self.c_service = service
+        self.c_service = PyObject_Copy_Str(value)
 
     @property
     def resource(self):
@@ -80,9 +53,7 @@ cdef class Span:
 
     @resource.setter
     def resource(self, object value):
-        cdef char* resource
-        resource = object_to_cstr(value)
-        self.c_resource = resource
+        self.c_resource = PyObject_Copy_Str(value)
 
     @property
     def name(self):
@@ -92,13 +63,12 @@ cdef class Span:
 
     @name.setter
     def name(self, object value):
-        cdef char* name
-        print(value)
         if value is None:
+            if self.c_name != NULL:
+                free(self.c_name)
             self.c_name = NULL
         else:
-            name = object_to_cstr(value)
-            self.c_name = name
+            self.c_name = PyObject_Copy_Str(value)
 
     # TODO: Make this be `def span_type`
     @property
@@ -111,10 +81,11 @@ cdef class Span:
     def _span_type(self, object value):
         cdef char* _type
         if value is None:
+            if self.c_span_type != NULL:
+                free(self.c_span_type)
             self.c_span_type = NULL
         else:
-            _type = object_to_cstr(value)
-            self.c_span_type = _type
+            self.c_span_type = PyObject_Copy_Str(value)
 
     @property
     def error(self):
@@ -146,16 +117,16 @@ cdef class Span:
             self.c_duration_ns = value
 
     def set_tag(self, object key, object value):
-        cdef char* c_key = object_to_cstr(key)
+        cdef char* c_key = PyObject_Copy_Str(key)
 
         # Setting the value as `None` will remove it
         if value is None:
             self.c_meta.erase(c_key)
         else:
-            self.c_meta[c_key] = object_to_cstr(value)
+            self.c_meta[c_key] = PyObject_Copy_Str(value)
 
     def get_tag(self, object key):
-        cdef char* c_key = object_to_cstr(key)
+        cdef char* c_key = PyObject_Copy_Str(key)
         try:
             value = self.c_meta.at(c_key)
             if value != NULL:
@@ -166,14 +137,14 @@ cdef class Span:
         return None
 
     def set_metric(self, object key, object value):
-        cdef char* c_key = object_to_cstr(key)
+        cdef char* c_key = PyObject_Copy_Str(key)
         if value is None:
             self.c_metrics.erase(c_key)
         else:
             self.c_metrics[c_key] = <long long> value;
 
     def get_metric(self, object key):
-        cdef char* c_key = object_to_cstr(key)
+        cdef char* c_key = PyObject_Copy_Str(key)
         try:
             return self.c_metrics.at(c_key)
         except IndexError:

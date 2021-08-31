@@ -1,6 +1,6 @@
 from cpython cimport *
 from cpython.bytearray cimport PyByteArray_Check
-from cython.operator import dereference
+from cython.operator import dereference, postincrement
 from libc cimport stdint
 from libc.string cimport strlen
 from libcpp.map cimport map
@@ -303,6 +303,8 @@ cdef class MsgpackEncoder(MsgpackEncoderBase):
                 value = dereference(it).second
                 ret = pack_bytes(&self.pk, value, len(value))
                 if ret != 0: break
+                postincrement(it)
+
             if dd_origin is not NULL:
                 ret = pack_bytes(&self.pk, <char *> b"_dd.origin", 10)
                 if ret == 0:
@@ -328,9 +330,11 @@ cdef class MsgpackEncoder(MsgpackEncoderBase):
                 if ret != 0: break
                 ret = msgpack_pack_long_long(&self.pk, dereference(it).second)
                 if ret != 0: break
+                postincrement(it)
+
         return ret
 
-    cdef int pack_span(self, Span span, char *dd_origin):
+    cdef int pack_span(self, Span span, char *dd_origin) nogil:
         cdef int ret
         cdef Py_ssize_t L
         cdef int has_span_type
