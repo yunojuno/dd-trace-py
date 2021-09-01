@@ -5,6 +5,7 @@ from libc cimport stdint
 from libc.string cimport strlen
 from libcpp.map cimport map
 import threading
+from ._utils cimport PyBytesLike_Check
 
 from ._span cimport Span
 
@@ -42,10 +43,6 @@ class BufferFull(Exception):
 
 class BufferItemTooLarge(Exception):
     pass
-
-
-cdef inline int PyBytesLike_Check(object o):
-    return PyBytes_Check(o) or PyByteArray_Check(o)
 
 
 cdef inline int array_prefix_size(int l):
