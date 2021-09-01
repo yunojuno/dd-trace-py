@@ -3,7 +3,7 @@ from cpython.bytearray cimport PyByteArray_Check
 from cython.operator import dereference, postincrement
 from libc.stdlib cimport free
 from libc.string cimport strcpy, strlen
-from ._c_utils cimport PyObject_Copy_Str, PyBytesLike_Check
+from ._utils cimport PyObject_Copy_Str, PyBytesLike_Check
 
 cdef inline char* map_key(object o):
     cdef object temp
