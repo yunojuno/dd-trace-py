@@ -15,6 +15,9 @@ ddtrace/internal/_rand.c
 ddtrace/internal/_span.cpp
 *.so
 
+# Cython annotate HTML files
+ddtrace/**/*.html
+
 # Distribution / packaging
 .Python
 env/
