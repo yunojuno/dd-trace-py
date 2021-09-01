@@ -254,11 +254,6 @@ class Span(NativeSpan):
             self.set_metric(key, value)
             return
 
-        # All floats should be set as a metric
-        elif isinstance(value, float):
-            self.set_metric(key, value)
-            return
-
         # Key should explicitly be converted to a float if needed
         elif key in NUMERIC_TAGS:
             if value is None:

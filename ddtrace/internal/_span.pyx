@@ -135,6 +135,8 @@ cdef class Span:
         # Setting the value as `None` will remove it
         if value is None:
             self.c_meta.erase(c_key)
+        elif PyLong_Check(value):
+            self.set_metric(key, value)
         else:
             self.c_meta[c_key] = PyObject_Copy_Str(value)
         self.c_metrics.erase(c_key)
