@@ -1,6 +1,7 @@
 from libcpp.map cimport map
 
 cdef class Span:
+    # Properties
     cdef unsigned long long c_trace_id
     cdef unsigned long long c_span_id
     cdef unsigned long long c_parent_id

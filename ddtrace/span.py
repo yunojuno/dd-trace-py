@@ -295,8 +295,6 @@ class Span(NativeSpan):
 
         try:
             super(Span, self).set_tag(key, stringify(value))
-            if super(Span, self).get_metric(key) is not None:
-                super(Span, self).set_metric(key, None)
         except Exception:
             log.warning("error setting tag %s, ignoring it", key, exc_info=True)
 
@@ -312,15 +310,6 @@ class Span(NativeSpan):
             if config._raise:
                 raise e
             log.warning("Failed to set text tag '%s'", key, exc_info=True)
-
-    def _remove_tag(self, key):
-        # type: (_TagNameType) -> None
-        super(Span, self).set_tag(key, None)
-
-    def get_tag(self, key):
-        # type: (_TagNameType) -> Optional[Text]
-        """Return the given tag or None if it doesn't exist."""
-        return super(Span, self).get_tag(key)
 
     def set_tags(self, tags):
         # type: (_MetaDictType) -> None
@@ -368,8 +357,6 @@ class Span(NativeSpan):
             log.debug("ignoring not real metric %s:%s", key, value)
             return
 
-        if super(Span, self).get_tag(key) is not None:
-            super(Span, self).set_tag(key, None)
         super(Span, self).set_metric(key, value)
 
     def set_metrics(self, metrics):
@@ -377,10 +364,6 @@ class Span(NativeSpan):
         if metrics:
             for k, v in iteritems(metrics):
                 self.set_metric(k, v)
-
-    def get_metric(self, key):
-        # type: (_TagNameType) -> Optional[NumericType]
-        return super(Span, self).get_metric(key)
 
     def to_dict(self):
         # type: () -> Dict[str, Any]
@@ -418,7 +401,7 @@ class Span(NativeSpan):
             self.set_exc_info(exc_type, exc_val, exc_tb)
         else:
             tb = "".join(traceback.format_stack(limit=limit + 1)[:-1])
-            self.meta[errors.ERROR_STACK] = tb
+            self.set_tag(errors.ERROR_STACK, tb)
 
     def set_exc_info(self, exc_type, exc_val, exc_tb):
         # type: (Any, Any, Any) -> None
@@ -439,9 +422,9 @@ class Span(NativeSpan):
         # readable version of type (e.g. exceptions.ZeroDivisionError)
         exc_type_str = "%s.%s" % (exc_type.__module__, exc_type.__name__)
 
-        self.meta[errors.ERROR_MSG] = str(exc_val)
-        self.meta[errors.ERROR_TYPE] = exc_type_str
-        self.meta[errors.ERROR_STACK] = tb
+        self.set_tag(errors.ERROR_MSG, str(exc_val))
+        self.set_tag(errors.ERROR_TYPE, exc_type_str)
+        self.set_tag(errors.ERROR_STACK, tb)
 
     def _remove_exc_info(self):
         # type: () -> None

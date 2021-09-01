@@ -3,7 +3,18 @@ from cpython.bytearray cimport PyByteArray_Check
 from cython.operator import dereference, postincrement
 from libc.stdlib cimport free
 from libc.string cimport strcpy, strlen
-from ._c_utils cimport PyObject_Copy_Str
+from ._c_utils cimport PyObject_Copy_Str, PyBytesLike_Check
+
+cdef inline char* map_key(object o):
+    cdef object temp
+
+    if PyBytesLike_Check(o):
+        return <char*> o
+    elif PyUnicode_Check(o):
+        temp = PyUnicode_AsEncodedString(o, "utf-8", NULL)
+        return <char*> temp
+    temp = PyObject_Str(o)
+    return <char*> temp
 
 
 cdef class Span:
@@ -126,10 +137,12 @@ cdef class Span:
             self.c_meta.erase(c_key)
         else:
             self.c_meta[c_key] = PyObject_Copy_Str(value)
+        self.c_metrics.erase(c_key)
 
     def get_tag(self, object key):
-        cdef char* c_key = PyObject_Copy_Str(key)
-        it = self.c_meta.find(c_key)
+        cdef map[char*, char*].iterator it
+
+        it = self.c_meta.find(map_key(key))
         while it != self.c_meta.end():
             return dereference(it).second
         return None
@@ -140,15 +153,21 @@ cdef class Span:
             self.c_metrics.erase(c_key)
         else:
             self.c_metrics[c_key] = <long long> value;
+        self.c_meta.erase(c_key)
 
     def get_metric(self, object key):
-        cdef char* c_key = PyObject_Copy_Str(key)
         cdef map[char*, long long].iterator it
 
-        it = self.c_metrics.find(c_key)
+        it = self.c_metrics.find(map_key(key))
         while it != self.c_metrics.end():
             return dereference(it).second
         return None
+
+    def _remove_tag(self, object key):
+        self.c_meta.erase(map_key(key))
+
+    def _remove_metric(self, object key):
+        self.c_metric.erase(map_key(key))
 
     @property
     def meta(self):
