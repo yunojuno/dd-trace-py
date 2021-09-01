@@ -290,7 +290,7 @@ class Span(NativeSpan):
                 return
 
         try:
-            super(Span, self).set_tag(key, stringify(value))
+            super(Span, self).set_tag(key, value)
         except Exception:
             log.warning("error setting tag %s, ignoring it", key, exc_info=True)
 
