@@ -1,6 +1,6 @@
 from cpython cimport *
 from cpython.bytearray cimport PyByteArray_Check
-from cython.operator import dereference
+from cython.operator import dereference, postincrement
 from libc.stdlib cimport free
 from libc.string cimport strcpy, strlen
 from ._c_utils cimport PyObject_Copy_Str
@@ -129,13 +129,9 @@ cdef class Span:
 
     def get_tag(self, object key):
         cdef char* c_key = PyObject_Copy_Str(key)
-        try:
-            value = self.c_meta.at(c_key)
-            if value != NULL:
-                return value
-        except IndexError:
-            pass
-
+        it = self.c_meta.find(c_key)
+        while it != self.c_meta.end():
+            return dereference(it).second
         return None
 
     def set_metric(self, object key, object value):
@@ -147,10 +143,12 @@ cdef class Span:
 
     def get_metric(self, object key):
         cdef char* c_key = PyObject_Copy_Str(key)
-        try:
-            return self.c_metrics.at(c_key)
-        except IndexError:
-            return None
+        cdef map[char*, long long].iterator it
+
+        it = self.c_metrics.find(c_key)
+        while it != self.c_metrics.end():
+            return dereference(it).second
+        return None
 
     @property
     def meta(self):
