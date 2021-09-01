@@ -268,25 +268,26 @@ class Span(NativeSpan):
 
             return
 
-        elif key == MANUAL_KEEP_KEY:
-            self.context.sampling_priority = priority.USER_KEEP
-            return
-        elif key == MANUAL_DROP_KEY:
-            self.context.sampling_priority = priority.USER_REJECT
-            return
-        elif key == SERVICE_KEY:
-            self.service = value
-        elif key == SERVICE_VERSION_KEY:
-            # Also set the `version` tag to the same value
-            # DEV: Note that we do no return, we want to set both
-            self.set_tag(VERSION_KEY, value)
-        elif key == SPAN_MEASURED_KEY:
-            # Set `_dd.measured` tag as a metric
-            # DEV: `set_metric` will ensure it is an integer 0 or 1
-            if value is None:
-                value = 1
-            self.set_metric(key, value)
-            return
+        elif key in (MANUAL_KEEP_KEY, MANUAL_DROP_KEY, SERVICE_KEY, SERVICE_VERSION_KEY, SPAN_MEASURED_KEY):
+            if key == MANUAL_KEEP_KEY:
+                self.context.sampling_priority = priority.USER_KEEP
+                return
+            elif key == MANUAL_DROP_KEY:
+                self.context.sampling_priority = priority.USER_REJECT
+                return
+            elif key == SERVICE_KEY:
+                self.service = value
+            elif key == SERVICE_VERSION_KEY:
+                # Also set the `version` tag to the same value
+                # DEV: Note that we do no return, we want to set both
+                self.set_tag(VERSION_KEY, value)
+            elif key == SPAN_MEASURED_KEY:
+                # Set `_dd.measured` tag as a metric
+                # DEV: `set_metric` will ensure it is an integer 0 or 1
+                if value is None:
+                    value = 1
+                self.set_metric(key, value)
+                return
 
         try:
             super(Span, self).set_tag(key, stringify(value))
