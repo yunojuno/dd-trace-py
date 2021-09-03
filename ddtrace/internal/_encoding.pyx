@@ -3,6 +3,7 @@ from cpython.bytearray cimport PyByteArray_Check
 from libc cimport stdint
 from libc.string cimport strlen
 import threading
+from ._span cimport Span
 from ._utils cimport PyBytesLike_Check
 
 
@@ -261,7 +262,7 @@ cdef class MsgpackEncoderBase(BufferedEncoder):
     cpdef flush(self):
         raise NotImplementedError()
 
-    cdef pack_span(self, object span, char *dd_origin):
+    cdef int pack_span(self, Span span, char *dd_origin):
         raise NotImplementedError()
 
 
@@ -322,7 +323,7 @@ cdef class MsgpackEncoder(MsgpackEncoderBase):
 
         raise TypeError("Unhandled metrics type: %r" % type(metrics))
 
-    cdef pack_span(self, object span, char *dd_origin):
+    cdef int pack_span(self, Span span, char *dd_origin):
         cdef int ret
         cdef Py_ssize_t L
         cdef int has_span_type
@@ -365,7 +366,7 @@ cdef class MsgpackEncoder(MsgpackEncoderBase):
 
             ret = pack_bytes(&self.pk, <char *> b"name", 4)
             if ret != 0: return ret
-            ret = pack_text(&self.pk, span.name)
+            ret = pack_bytes(&self.pk, span._name, strlen(span._name))
             if ret != 0: return ret
 
             ret = pack_bytes(&self.pk, <char *> b"error", 5)
