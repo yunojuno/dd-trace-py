@@ -201,7 +201,7 @@ setup(
         "Programming Language :: Python :: 3.9",
     ],
     use_scm_version={"write_to": "ddtrace/_version.py"},
-    setup_requires=["setuptools_scm[toml]>=4,<6.1", "cython"],
+    setup_requires=["setuptools_scm[toml]>=4,<6.1", "cython", "cymem>=2.0.0"],
     ext_modules=ext_modules
     + cythonize(
         [
@@ -209,6 +209,11 @@ setup(
                 "ddtrace.internal._rand",
                 sources=["ddtrace/internal/_rand.pyx"],
                 language="c",
+            ),
+            Cython.Distutils.Extension(
+                "ddtrace.internal._span",
+                sources=["ddtrace/internal/_span.pyx"],
+                language="c++",
             ),
             Extension(
                 "ddtrace.internal._encoding",
