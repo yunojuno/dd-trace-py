@@ -356,12 +356,12 @@ cdef class MsgpackEncoder(MsgpackEncoderBase):
 
             ret = pack_bytes(&self.pk, <char *> b"service", 7)
             if ret != 0: return ret
-            ret = pack_text(&self.pk, span.service)
+            ret = pack_bytes(&self.pk, span._service, strlen(span._service))
             if ret != 0: return ret
 
             ret = pack_bytes(&self.pk, <char *> b"resource", 8)
             if ret != 0: return ret
-            ret = pack_text(&self.pk, span.resource)
+            ret = pack_bytes(&self.pk, span._resource, strlen(span._resource))
             if ret != 0: return ret
 
             ret = pack_bytes(&self.pk, <char *> b"name", 4)

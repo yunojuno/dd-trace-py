@@ -55,8 +55,6 @@ class Span(NativeSpan):
 
     __slots__ = [
         # Public span attributes
-        "service",
-        "resource",
         "span_id",
         "trace_id",
         "parent_id",
