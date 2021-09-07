@@ -212,7 +212,7 @@ cdef class MsgpackEncoderBase(BufferedEncoder):
 
         if L > 0 and trace[0].context is not None and trace[0].context.dd_origin is not None:
             IF PY_MAJOR_VERSION >= 3:
-                dd_origin = PyUnicode_AsUTF8(trace[0].context.dd_origin)
+                dd_origin = <char*> PyUnicode_AsUTF8(trace[0].context.dd_origin)
             ELSE:
                 dd_origin = trace[0].context.dd_origin
 

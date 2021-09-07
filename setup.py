@@ -2,13 +2,14 @@ import os
 import platform
 import sys
 
-from setuptools import setup, find_packages, Extension
-from setuptools.command.test import test as TestCommand
-
 # ORDER MATTERS
 # Import this after setuptools or it will fail
 from Cython.Build import cythonize  # noqa: I100
 import Cython.Distutils
+from setuptools import Extension
+from setuptools import find_packages
+from setuptools import setup
+from setuptools.command.test import test as TestCommand
 
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -56,8 +57,9 @@ class Tox(TestCommand):
 
     def run_tests(self):
         # import here, cause outside the eggs aren't loaded
-        import tox
         import shlex
+
+        import tox
 
         args = self.tox_args
         if args:
@@ -173,6 +175,7 @@ setup(
         "attrs>=19.2.0",
         "six>=1.12.0",
         "pep562; python_version<'3.7'",
+        "cymem>=2.0.0",
     ],
     extras_require={
         # users can include opentracing by having:
@@ -201,7 +204,7 @@ setup(
         "Programming Language :: Python :: 3.9",
     ],
     use_scm_version={"write_to": "ddtrace/_version.py"},
-    setup_requires=["setuptools_scm[toml]>=4,<6.1", "cython", "cymem>=2.0.0"],
+    setup_requires=["setuptools_scm[toml]>=4,<6.1", "cython>=0.20.2", "cymem>=2.0.0"],
     ext_modules=ext_modules
     + cythonize(
         [
@@ -221,6 +224,7 @@ setup(
                 include_dirs=["."],
                 libraries=encoding_libraries,
                 define_macros=encoding_macros,
+                language="c++",
             ),
             Cython.Distutils.Extension(
                 "ddtrace.profiling.collector.stack",
