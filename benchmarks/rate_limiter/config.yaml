@@ -1,0 +1,14 @@
+rate_limit_0:
+  rate_limit: 0
+
+rate_limit_neg_1:
+  rate_limit: -1
+
+rate_limit_1:
+  rate_limit: 1
+
+rate_limit_100:
+  rate_limit: 100
+
+rate_limit_1000:
+  rate_limit: 1000

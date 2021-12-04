@@ -1,29 +1,24 @@
-from __future__ import division
-
 import threading
-from typing import Optional
 
 from ..internal import compat
 
 
-class RateLimiter(object):
+cdef class RateLimiter(object):
     """
     A token bucket rate limiter implementation
     """
 
-    __slots__ = (
-        "_lock",
-        "current_window",
-        "last_update",
-        "max_tokens",
-        "prev_window_rate",
-        "rate_limit",
-        "tokens",
-        "tokens_allowed",
-        "tokens_total",
-    )
+    cdef readonly int rate_limit
+    cdef readonly float tokens
+    cdef readonly int max_tokens
+    cdef readonly float last_update
+    cdef readonly float current_window
+    cdef readonly int tokens_allowed
+    cdef readonly int tokens_total
+    cdef readonly float prev_window_rate
+    cdef object _lock
 
-    def __init__(self, rate_limit):
+    def __init__(self, int rate_limit):
         # type: (int) -> None
         """
         Constructor for RateLimiter
@@ -35,19 +30,19 @@ class RateLimiter(object):
         :type rate_limit: :obj:`int`
         """
         self.rate_limit = rate_limit
-        self.tokens = rate_limit  # type: float
+        self.tokens = rate_limit
         self.max_tokens = rate_limit
 
         self.last_update = compat.monotonic()
 
-        self.current_window = 0  # type: float
+        self.current_window = 0
         self.tokens_allowed = 0
         self.tokens_total = 0
-        self.prev_window_rate = None  # type: Optional[float]
+        self.prev_window_rate = -1
 
         self._lock = threading.Lock()
 
-    def is_allowed(self):
+    cpdef bint is_allowed(self):
         # type: () -> bool
         """
         Check whether the current request is allowed or not
@@ -58,14 +53,14 @@ class RateLimiter(object):
         :rtype: :obj:`bool`
         """
         # Determine if it is allowed
-        allowed = self._is_allowed()
+        cdef bint allowed = self._is_allowed()
         # Update counts used to determine effective rate
         self._update_rate_counts(allowed)
         return allowed
 
-    def _update_rate_counts(self, allowed):
+    cdef void _update_rate_counts(self, bint allowed):
         # type: (bool) -> None
-        now = compat.monotonic()
+        cdef float now = compat.monotonic()
 
         # No tokens have been seen yet, start a new window
         if not self.current_window:
@@ -84,7 +79,7 @@ class RateLimiter(object):
             self.tokens_allowed += 1
         self.tokens_total += 1
 
-    def _is_allowed(self):
+    cdef bint _is_allowed(self):
         # type: () -> bool
         # Rate limit of 0 blocks everything
         if self.rate_limit == 0:
@@ -104,8 +99,11 @@ class RateLimiter(object):
 
             return False
 
-    def _replenish(self):
+    cdef void _replenish(self):
         # type: () -> None
+        cdef float now
+        cdef float elapsed
+
         # If we are at the max, we do not need to add any more
         if self.tokens == self.max_tokens:
             return
@@ -121,7 +119,7 @@ class RateLimiter(object):
             self.tokens + (elapsed * self.rate_limit),
         )
 
-    def _current_window_rate(self):
+    cdef float _current_window_rate(self):
         # type: () -> float
         # No tokens have been seen, effectively 100% sample rate
         # DEV: This is to avoid division by zero error
@@ -140,8 +138,14 @@ class RateLimiter(object):
         :returns: Effective sample rate value 0.0 <= rate <= 1.0
         :rtype: :obj:`float``
         """
+        # No need to compute when the results are static
+        if self.rate_limit == 0:
+            return 0.0
+        elif self.rate_limit < 0:
+            return 1.0
+
         # If we have not had a previous window yet, return current rate
-        if self.prev_window_rate is None:
+        if self.prev_window_rate < 0:
             return self._current_window_rate()
 
         return (self._current_window_rate() + self.prev_window_rate) / 2.0

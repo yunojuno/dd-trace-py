@@ -148,18 +148,18 @@ def test_rate_limiter_effective_rate_starting_rate():
 
         # Default values
         assert limiter.current_window == 0
-        assert limiter.prev_window_rate is None
+        assert limiter.prev_window_rate == -1
 
         # Accessing the effective rate doesn't change anything
         assert limiter.effective_rate == 1.0
         assert limiter.current_window == 0
-        assert limiter.prev_window_rate is None
+        assert limiter.prev_window_rate == -1
 
         # Calling `.is_allowed()` updates the values
         assert limiter.is_allowed() is True
         assert limiter.effective_rate == 1.0
         assert limiter.current_window == now
-        assert limiter.prev_window_rate is None
+        assert limiter.prev_window_rate == -1
 
         # Gap of 0.9999 seconds, same window
         mock_time.return_value = now + 0.9999
@@ -167,7 +167,7 @@ def test_rate_limiter_effective_rate_starting_rate():
         # DEV: We have rate_limit=1 set
         assert limiter.effective_rate == 0.5
         assert limiter.current_window == now
-        assert limiter.prev_window_rate is None
+        assert limiter.prev_window_rate == -1
 
         # Gap of 1.0 seconds, new window
         mock_time.return_value = now + 1.0
