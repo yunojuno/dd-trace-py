@@ -13,6 +13,7 @@ from ...internal.compat import maybe_stringify
 from ...internal.logger import get_logger
 from ...internal.utils import get_argument_value
 from ...internal.utils.version import parse_version
+from ...propagation.http import LowercasePropagator
 from ..trace_utils import unwrap as _u
 from .helpers import get_current_app
 from .helpers import simple_tracer
@@ -294,7 +295,13 @@ def traced_wsgi_app(pin, wrapped, instance, args, kwargs):
     request = werkzeug.Request(environ)
 
     # Configure distributed tracing
-    trace_utils.activate_distributed_headers(pin.tracer, int_config=config.flask, request_headers=request.headers)
+    trace_utils.activate_distributed_headers(
+        pin.tracer,
+        int_config=config.flask,
+        request_headers=request.headers,
+        # Flask headers are case insensitive, no need to normalize them
+        propagator=LowercasePropagator,
+    )
 
     # Default resource is method and path:
     #   GET /

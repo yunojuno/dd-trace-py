@@ -30,6 +30,8 @@ class HTTPPropagationExtract(bm.Scenario):
         propagator = http.HTTPPropagator
         if self.wsgi_style:
             propagator = getattr(http, "WSGIPropagator", propagator)
+        else:
+            propagator = getattr(http, "LowercasePropagator", propagator)
 
         def _(loops):
             for _ in range(loops):

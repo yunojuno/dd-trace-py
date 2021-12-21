@@ -16,6 +16,7 @@ from ddtrace import config
 from ddtrace.constants import SPAN_MEASURED_KEY
 from ddtrace.contrib import dbapi
 from ddtrace.contrib import func_name
+from ddtrace.propagation.http import WSGIPropagator
 
 from ...internal.utils import get_argument_value
 
@@ -312,7 +313,13 @@ def traced_get_response(django, pin, func, instance, args, kwargs):
     if request is None:
         return func(*args, **kwargs)
 
-    trace_utils.activate_distributed_headers(pin.tracer, int_config=config.django, request_headers=request.META)
+    trace_utils.activate_distributed_headers(
+        pin.tracer,
+        int_config=config.django,
+        # `request.META` access headers as `HTTP_X_DATADOG_TRACE_ID` like WSGI environ
+        request_headers=request.META,
+        propagator=WSGIPropagator,
+    )
 
     with pin.tracer.trace(
         "django.request",
