@@ -117,7 +117,7 @@ class HTTPPropagator(object):
     def _extract_from_headers(
         cls, headers, trace_id_header, parent_id_header, priority_header, origin_header, tags_header
     ):
-        # type: (Dict[str, str], str, str, str, str, str, str) -> Context
+        # type: (Dict[str, str], str, str, str, str, str) -> Context
         if not headers:
             return Context()
 
@@ -239,7 +239,7 @@ class WSGIPropagator(HTTPPropagator):
     @classmethod
     def extract(cls, headers):
         # type: (Dict[str,str]) -> Context
-        return HTTPPropagator._extract_from_headers(
+        return cls._extract_from_headers(
             headers,
             WSGI_HEADER_TRACE_ID,
             WSGI_HEADER_PARENT_ID,
