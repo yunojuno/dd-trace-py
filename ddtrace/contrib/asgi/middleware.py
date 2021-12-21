@@ -6,6 +6,7 @@ from ddtrace import config
 from ddtrace.constants import ANALYTICS_SAMPLE_RATE_KEY
 from ddtrace.ext import SpanTypes
 from ddtrace.ext import http
+from ddtrace.propagation.http import LowercasePropagator
 
 from .. import trace_utils
 from ...internal.compat import reraise
@@ -58,7 +59,7 @@ def _extract_headers(scope):
     headers = scope.get("headers")
     if headers:
         # headers: (Iterable[[byte string, byte string]])
-        return dict((bytes_to_str(k), bytes_to_str(v)) for (k, v) in headers)
+        return dict((bytes_to_str(k).lower(), bytes_to_str(v)) for (k, v) in headers)
     return {}
 
 
@@ -107,7 +108,11 @@ class TraceMiddleware:
             headers = {}
         else:
             trace_utils.activate_distributed_headers(
-                self.tracer, int_config=self.integration_config, request_headers=headers
+                self.tracer,
+                int_config=self.integration_config,
+                request_headers=headers,
+                # Header keys are already lowercased, no normalizations is needed
+                propagator=LowercasePropagator,
             )
 
         resource = "{} {}".format(scope["method"], scope["path"])

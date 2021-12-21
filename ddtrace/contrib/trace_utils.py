@@ -11,6 +11,7 @@ from typing import Iterator
 from typing import Optional
 from typing import TYPE_CHECKING
 from typing import Tuple
+from typing import Type
 
 from ddtrace import Pin
 from ddtrace import config
@@ -274,8 +275,10 @@ def set_http_meta(
         span._set_str_tag(http.RETRIES_REMAIN, str(retries_remain))
 
 
-def activate_distributed_headers(tracer, int_config=None, request_headers=None, override=None):
-    # type: (Tracer, Optional[IntegrationConfig], Optional[Dict[str, str]], Optional[bool]) -> None
+def activate_distributed_headers(
+    tracer, int_config=None, request_headers=None, override=None, propagator=HTTPPropagator
+):
+    # type: (Tracer, Optional[IntegrationConfig], Optional[Dict[str, str]], Optional[bool], Type[HTTPPropagator]) -> None
     """
     Helper for activating a distributed trace headers' context if enabled in integration config.
     int_config will be used to check if distributed trace headers context will be activated, but
@@ -285,7 +288,7 @@ def activate_distributed_headers(tracer, int_config=None, request_headers=None, 
         return None
 
     if override or (int_config and distributed_tracing_enabled(int_config)):
-        context = HTTPPropagator.extract(request_headers)
+        context = propagator.extract(request_headers)
         # Only need to activate the new context if something was propagated
         if context.trace_id:
             tracer.context_provider.activate(context)

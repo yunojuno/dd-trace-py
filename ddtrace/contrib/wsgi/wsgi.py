@@ -21,14 +21,13 @@ from ddtrace import config
 from ddtrace.ext import SpanTypes
 from ddtrace.internal.logger import get_logger
 from ddtrace.propagation._utils import from_wsgi_header
-from ddtrace.propagation.http import HTTPPropagator
+from ddtrace.propagation.http import WSGIPropagator
 
 from .. import trace_utils
 
 
 log = get_logger(__name__)
 
-propagator = HTTPPropagator
 
 config._add(
     "wsgi",
@@ -109,7 +108,9 @@ class DDWSGIMiddleware(object):
                 write = start_response(status, response_headers, exc_info)
             return write
 
-        trace_utils.activate_distributed_headers(self.tracer, int_config=config.wsgi, request_headers=environ)
+        trace_utils.activate_distributed_headers(
+            self.tracer, int_config=config.wsgi, request_headers=environ, propagator=WSGIPropagator
+        )
 
         with self.tracer.trace(
             "wsgi.request",

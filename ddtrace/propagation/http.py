@@ -247,3 +247,17 @@ class WSGIPropagator(HTTPPropagator):
             WSGI_HEADER_ORIGIN,
             WSGI_HEADER_TAGS,
         )
+
+
+class LowercasePropagator(HTTPPropagator):
+    @classmethod
+    def extract(cls, headers):
+        # type: (Dict[str,str]) -> Context
+        return cls._extract_from_headers(
+            headers,
+            HTTP_HEADER_TRACE_ID,
+            HTTP_HEADER_PARENT_ID,
+            HTTP_HEADER_SAMPLING_PRIORITY,
+            HTTP_HEADER_ORIGIN,
+            HTTP_HEADER_TAGS,
+        )
