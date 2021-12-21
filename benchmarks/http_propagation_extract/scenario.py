@@ -2,8 +2,8 @@ import json
 
 import bm
 
+from ddtrace.propagation import _utils as utils
 from ddtrace.propagation import http
-from ddtrace.propagation import utils
 
 
 class HTTPPropagationExtract(bm.Scenario):
@@ -27,8 +27,12 @@ class HTTPPropagationExtract(bm.Scenario):
     def run(self):
         headers = self.generate_headers()
 
+        propagator = http.HTTPPropagator
+        if self.wsgi_style:
+            propagator = getattr(http, "WSGIPropagator", propagator)
+
         def _(loops):
             for _ in range(loops):
-                http.HTTPPropagator.extract(headers)
+                propagator.extract(headers)
 
         yield _
