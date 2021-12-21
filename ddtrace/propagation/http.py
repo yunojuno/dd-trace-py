@@ -104,97 +104,82 @@ class HTTPPropagator(object):
                 headers[HTTP_HEADER_TAGS] = encoded_tags
 
     @staticmethod
-    def _extract_header_value(headers, key, default=None):
-        # type: (Dict[str, str], str, Optional[str]) -> Optional[str]
-        try:
-            return headers[header]
-        except KeyError:
-            return default
+    def _extract_header_value(possible_header_names, headers, default=None):
+        # type: (FrozenSet[str], Dict[str, str], Optional[str]) -> Optional[str]
+        for header in possible_header_names:
+            try:
+                return headers[header]
+            except KeyError:
+                pass
+        return default
 
-    @staticmethod
-    def _extract_from_headers(headers, trace_id_header, parent_id_header, priority_header, origin_header, tags_header):
+    @classmethod
+    def _extract_from_headers(
+        cls, headers, trace_id_header, parent_id_header, priority_header, origin_header, tags_header
+    ):
         # type: (Dict[str, str], str, str, str, str, str, str) -> Context
         if not headers:
             return Context()
 
         try:
             # TODO: Fix variable type changing (mypy)
-            trace_id = HTTPPropagator._extract_header_value(headers, trace_id_header)
+            trace_id = headers.get(trace_id_header)
             if trace_id is None:
                 return Context()
 
-            parent_span_id = HTTPPropagator._extract_header_value(headers, parent_id_header, default="0")
-            sampling_priority = HTTPPropagator._extract_header_value(headers, priority_header)
-            origin = HTTPPropagator._extract_header_value(headers, origin_header)
-            meta = None
-            tags_value = HTTPPropagator._extract_header_value(headers, tags_header, default="")
-            if tags_value:
-                # Do not fail if the tags are malformed
-                try:
-                    # We get a Dict[str, str], but need it to be Dict[Union[str, bytes], str] (e.g. _MetaDictType)
-                    meta = cast(Dict[Union[str, bytes], str], decode_tagset_string(tags_value))
-                except TagsetDecodeError:
-                    log.debug("failed to decode x-datadog-tags: %r", tags_value, exc_info=True)
-
-            # Try to parse values into their expected types
-            try:
-                if sampling_priority is not None:
-                    sampling_priority = int(sampling_priority)  # type: ignore[assignment]
-                else:
-                    sampling_priority = sampling_priority
-
-                return Context(
-                    # DEV: Do not allow `0` for trace id or span id, use None instead
-                    trace_id=int(trace_id) or None,
-                    span_id=int(parent_span_id) or None,  # type: ignore[arg-type]
-                    sampling_priority=sampling_priority,  # type: ignore[arg-type]
-                    dd_origin=origin,
-                    meta=meta,
-                )
-            # If headers are invalid and cannot be parsed, return a new context and log the issue.
-            except (TypeError, ValueError):
-                log.debug(
-                    (
-                        "received invalid x-datadog-* headers, "
-                        "trace-id: %r, parent-id: %r, priority: %r, origin: %r, tags: %r"
-                    ),
-                    trace_id,
-                    parent_span_id,
-                    sampling_priority,
-                    origin,
-                    tags_value,
-                )
-                return Context()
+            parent_span_id = headers.get(parent_id_header, default="0")
+            sampling_priority = headers.get(priority_header)
+            origin = headers.get(origin_header)
+            tags_value = headers.get(tags_header, default="")
+            return cls._create_context(trace_id, parent_span_id, sampling_priority, origin, tags_value)
         except Exception:
             log.debug("error while extracting x-datadog-* headers", exc_info=True)
             return Context()
 
     @staticmethod
-    def extract_wsgi(headers):
-        # type: (Dict[str,str]) -> Context
-        return HTTPPropagator._extract_from_headers(
-            headers,
-            WSGI_HEADER_TRACE_ID,
-            WSGI_HEADER_PARENT_ID,
-            WSGI_HEADER_SAMPLING_PRIORITY,
-            WSGI_HEADER_ORIGIN,
-            WSGI_HEADER_TAGS,
-        )
+    def _create_context(trace_id, parent_span_id, sampling_priority, origin, tags_value):
+        # type: (Optional[str], Optional[str], Optional[str], Optional[str]) -> Context
+        meta = None
+        if tags_value:
+            # Do not fail if the tags are malformed
+            try:
+                # We get a Dict[str, str], but need it to be Dict[Union[str, bytes], str] (e.g. _MetaDictType)
+                meta = cast(Dict[Union[str, bytes], str], decode_tagset_string(tags_value))
+            except TagsetDecodeError:
+                log.debug("failed to decode x-datadog-tags: %r", tags_value, exc_info=True)
 
-    @staticmethod
-    def extract_werkzeung(headers):
-        # type: (Dict[str,str]) -> Context
-        return HTTPPropagator._extract_from_headers(
-            headers,
-            HTTP_HEADER_TRACE_ID,
-            HTTP_HEADER_PARENT_ID,
-            HTTP_HEADER_SAMPLING_PRIORITY,
-            HTTP_HEADER_ORIGIN,
-            HTTP_HEADER_TAGS,
-        )
+        # Try to parse values into their expected types
+        try:
+            if sampling_priority is not None:
+                sampling_priority = int(sampling_priority)  # type: ignore[assignment]
+            else:
+                sampling_priority = sampling_priority
 
-    @staticmethod
-    def extract(headers):
+            return Context(
+                # DEV: Do not allow `0` for trace id or span id, use None instead
+                trace_id=int(trace_id) or None,
+                span_id=int(parent_span_id) or None,  # type: ignore[arg-type]
+                sampling_priority=sampling_priority,  # type: ignore[arg-type]
+                dd_origin=origin,
+                meta=meta,
+            )
+        # If headers are invalid and cannot be parsed, return a new context and log the issue.
+        except (TypeError, ValueError):
+            log.debug(
+                (
+                    "received invalid x-datadog-* headers, "
+                    "trace-id: %r, parent-id: %r, priority: %r, origin: %r, tags: %r"
+                ),
+                trace_id,
+                parent_span_id,
+                sampling_priority,
+                origin,
+                tags_value,
+            )
+            return Context()
+
+    @classmethod
+    def extract(cls, headers):
         # type: (Dict[str,str]) -> Context
         """Extract a Context from HTTP headers into a new Context.
 
@@ -219,69 +204,46 @@ class HTTPPropagator(object):
         try:
             normalized_headers = {name.lower(): v for name, v in headers.items()}
             # TODO: Fix variable type changing (mypy)
-            trace_id = HTTPPropagator._extract_header_value(
+            trace_id = cls._extract_header_value(
                 POSSIBLE_HTTP_HEADER_TRACE_IDS,
                 normalized_headers,
             )
             if trace_id is None:
                 return Context()
 
-            parent_span_id = HTTPPropagator._extract_header_value(
+            parent_span_id = cls._extract_header_value(
                 POSSIBLE_HTTP_HEADER_PARENT_IDS,
                 normalized_headers,
                 default="0",
             )
-            sampling_priority = HTTPPropagator._extract_header_value(
+            sampling_priority = cls._extract_header_value(
                 POSSIBLE_HTTP_HEADER_SAMPLING_PRIORITIES,
                 normalized_headers,
             )
-            origin = HTTPPropagator._extract_header_value(
+            origin = cls._extract_header_value(
                 POSSIBLE_HTTP_HEADER_ORIGIN,
                 normalized_headers,
             )
-            meta = None
-            tags_value = HTTPPropagator._extract_header_value(
+            tags_value = cls._extract_header_value(
                 POSSIBLE_HTTP_HEADER_TAGS,
                 normalized_headers,
                 default="",
             )
-            if tags_value:
-                # Do not fail if the tags are malformed
-                try:
-                    # We get a Dict[str, str], but need it to be Dict[Union[str, bytes], str] (e.g. _MetaDictType)
-                    meta = cast(Dict[Union[str, bytes], str], decode_tagset_string(tags_value))
-                except TagsetDecodeError:
-                    log.debug("failed to decode x-datadog-tags: %r", tags_value, exc_info=True)
-
-            # Try to parse values into their expected types
-            try:
-                if sampling_priority is not None:
-                    sampling_priority = int(sampling_priority)  # type: ignore[assignment]
-                else:
-                    sampling_priority = sampling_priority
-
-                return Context(
-                    # DEV: Do not allow `0` for trace id or span id, use None instead
-                    trace_id=int(trace_id) or None,
-                    span_id=int(parent_span_id) or None,  # type: ignore[arg-type]
-                    sampling_priority=sampling_priority,  # type: ignore[arg-type]
-                    dd_origin=origin,
-                    meta=meta,
-                )
-            # If headers are invalid and cannot be parsed, return a new context and log the issue.
-            except (TypeError, ValueError):
-                log.debug(
-                    (
-                        "received invalid x-datadog-* headers, "
-                        "trace-id: %r, parent-id: %r, priority: %r, origin: %r, tags: %r"
-                    ),
-                    trace_id,
-                    parent_span_id,
-                    sampling_priority,
-                    origin,
-                    tags_value,
-                )
-                return Context()
+            return cls._create_context(trace_id, parent_span_id, sampling_priority, origin, tags_value)
         except Exception:
             log.debug("error while extracting x-datadog-* headers", exc_info=True)
             return Context()
+
+
+class WSGIPropagator(HTTPPropagator):
+    @classmethod
+    def extract(cls, headers):
+        # type: (Dict[str,str]) -> Context
+        return HTTPPropagator._extract_from_headers(
+            headers,
+            WSGI_HEADER_TRACE_ID,
+            WSGI_HEADER_PARENT_ID,
+            WSGI_HEADER_SAMPLING_PRIORITY,
+            WSGI_HEADER_ORIGIN,
+            WSGI_HEADER_TAGS,
+        )
