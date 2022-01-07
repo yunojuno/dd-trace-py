@@ -739,10 +739,10 @@ jobs:
           pattern: '^requests_gevent_contrib-'
 
   sanic:
-    <<: *contrib_job
+    <<: *contrib_job_small
     steps:
-      - run_tox_scenario:
-          pattern: '^sanic_contrib-'
+      - run_test:
+          pattern: "sanic"
 
   snowflake:
     <<: *machine_executor

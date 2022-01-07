@@ -1391,6 +1391,52 @@ venv = Venv(
             },
         ),
         Venv(
+            name="sanic",
+            command="pytest {cmdargs} tests/contrib/sanic",
+            pkgs={
+                "pytest-asyncio": latest,
+            },
+            venvs=[
+                Venv(
+                    pys=select_pys(min_version="3.7", max_version="3.9"),
+                    pkgs={
+                        "sanic": ["~=19.12"],
+                        "pytest-sanic": ["~=1.6.2"],
+                        "httpx": ["~=0.9.3"],
+                    },
+                ),
+                Venv(
+                    pys=select_pys(min_version="3.7", max_version="3.9"),
+                    pkgs={
+                        "sanic": ["~=20.12"],
+                        "pytest-sanic": ["~=1.6.2"],
+                        "httpx": ["~=0.15.4"],
+                    },
+                ),
+                Venv(
+                    pys=select_pys(min_version="3.7"),
+                    pkgs={
+                        "sanic": ["~=21.3.0"],
+                        "pytest-sanic": ["~=1.7.1"],
+                        "httpx": ["~=0.15.4"],
+                    },
+                ),
+                Venv(
+                    pys=select_pys(min_version="3.7"),
+                    pkgs={
+                        "sanic": [
+                            "~=21.6.0",
+                            # "~=21.9.0",
+                            # "~=21.12.0",
+                            # latest,
+                        ],
+                        "pytest-sanic": latest,
+                        "httpx": latest,
+                    },
+                ),
+            ],
+        ),
+        Venv(
             name="snowflake",
             command="pytest {cmdargs} tests/contrib/snowflake",
             pkgs={

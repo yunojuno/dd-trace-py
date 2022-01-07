@@ -6,7 +6,6 @@ import pytest
 from sanic import Sanic
 from sanic.config import DEFAULT_CONFIG
 from sanic.exceptions import ServerError
-from sanic.exceptions import abort
 from sanic.response import json
 from sanic.response import stream
 from sanic.response import text
@@ -48,7 +47,7 @@ def app(tracer):
     # with the same name if register is True.
     DEFAULT_CONFIG["REGISTER"] = False
     DEFAULT_CONFIG["RESPONSE_TIMEOUT"] = 1.0
-    app = Sanic(__name__)
+    app = Sanic("sanic")
 
     @tracer.wrap()
     async def random_sleep():
@@ -91,10 +90,6 @@ def app(tracer):
 
     @app.route("/<n:int>/count", methods=["GET"])
     async def count(request, n):
-        try:
-            pass
-        except Exception as e:
-            abort(500, e)
         return json({"hello": n})
 
     @app.exception(ServerError)
