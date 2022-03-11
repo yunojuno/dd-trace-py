@@ -6,6 +6,7 @@ from typing import Tuple
 
 from ddtrace.internal.utils.cache import cachedmethod
 
+from ..constants import PROPAGATION_STYLE_DATADOG
 from ..internal.logger import get_logger
 from ..internal.utils.formats import asbool
 from ..internal.utils.formats import parse_tags_str
@@ -139,6 +140,18 @@ class Config(object):
         self.report_hostname = asbool(os.getenv("DD_TRACE_REPORT_HOSTNAME", default=False))
 
         self.health_metrics_enabled = asbool(os.getenv("DD_TRACE_HEALTH_METRICS_ENABLED", default=False))
+
+        # Propagation styles
+        self.propagation_style_extract = set(
+            style.strip().lower()
+            for style in os.getenv("DD_TRACE_PROPAGATION_STYLE_EXTRACT", default=PROPAGATION_STYLE_DATADOG).split(",")
+            if style.strip()
+        )
+        self.propagation_style_inject = set(
+            style.strip().lower()
+            for style in os.getenv("DD_TRACE_PROPAGATION_STYLE_INJECT", default=PROPAGATION_STYLE_DATADOG).split(",")
+            if style.strip()
+        )
 
         # Raise certain errors only if in testing raise mode to prevent crashing in production with non-critical errors
         self._raise = asbool(os.getenv("DD_TESTING_RAISE", False))

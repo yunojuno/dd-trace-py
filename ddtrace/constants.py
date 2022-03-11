@@ -33,3 +33,10 @@ AUTO_REJECT = 0
 AUTO_KEEP = 1
 # Use this to explicitly inform the backend that a trace should be kept and stored.
 USER_KEEP = 2
+
+PROPAGATION_STYLE_DATADOG = "datadog"
+PROPAGATION_STYLE_B3 = "b3"
+PROPAGATION_STYLE_B3_SINGLE_HEADER = "b3 single header"
+PROPAGATION_STYLE_ALL = frozenset(
+    [PROPAGATION_STYLE_DATADOG, PROPAGATION_STYLE_B3, PROPAGATION_STYLE_B3_SINGLE_HEADER]
+)  # type: frozenset[str]
