@@ -306,12 +306,13 @@ class HTTPPropagator(object):
         :param Context span_context: Span context to propagate.
         :param dict headers: HTTP headers to extend with tracing attributes.
         """
-        if PROPAGATION_STYLE_DATADOG in config.propagation_style_inject:
-            _inject_datadog(span_context, headers)
-        if PROPAGATION_STYLE_B3 in config.propagation_style_inject:
-            _inject_b3(span_context, headers)
-        if PROPAGATION_STYLE_B3_SINGLE_HEADER in config.propagation_style_inject:
-            _inject_b3_single_header(span_context, headers)
+        for style in config.propagation_style_extract:
+            if style == PROPAGATION_STYLE_DATADOG:
+                _inject_datadog(span_context, headers)
+            elif style == PROPAGATION_STYLE_B3:
+                _inject_b3(span_context, headers)
+            elif style == PROPAGATION_STYLE_B3_SINGLE_HEADER:
+                _inject_b3_single_header(span_context, headers)
 
     @staticmethod
     def extract(headers):
@@ -338,18 +339,22 @@ class HTTPPropagator(object):
 
         try:
             normalized_headers = _normalize_headers(headers)
-            if PROPAGATION_STYLE_DATADOG in config.propagation_style_extract:
-                context = _extract_datadog(normalized_headers)
-                if context is not None:
-                    return context
-            if PROPAGATION_STYLE_B3 in config.propagation_style_extract:
-                context = _extract_b3(normalized_headers)
-                if context is not None:
-                    return context
-            if PROPAGATION_STYLE_B3_SINGLE_HEADER in config.propagation_style_extract:
-                context = _extract_b3_single_header(normalized_headers)
-                if context is not None:
-                    return context
+            for style in config.propagation_style_extract:
+                if style == PROPAGATION_STYLE_DATADOG:
+                    context = _extract_datadog(normalized_headers)
+                    if context is not None:
+                        return context
+                elif style == PROPAGATION_STYLE_B3:
+                    context = _extract_b3(normalized_headers)
+                    if context is not None:
+                        return context
+                elif style == PROPAGATION_STYLE_B3_SINGLE_HEADER:
+                    context = _extract_b3_single_header(normalized_headers)
+                    if context is not None:
+                        return context
+                else:
+                    # TODO: Should we alert here? We should probably validate in config
+                    pass
         except Exception:
             log.debug("error while extracting context propagation headers", exc_info=True)
         return Context()
