@@ -2,8 +2,17 @@ import json
 
 import bm
 
+import ddtrace
 from ddtrace.propagation import _utils as utils
 from ddtrace.propagation import http
+
+
+try:
+    from ddtrace.constants import PROPAGATION_STYLE_ALL
+
+    ddtrace.config.propagation_style_extract = PROPAGATION_STYLE_ALL
+except ImportError:
+    pass
 
 
 class HTTPPropagationExtract(bm.Scenario):

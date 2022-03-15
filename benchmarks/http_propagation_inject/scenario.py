@@ -1,7 +1,16 @@
 import bm
 
+import ddtrace
 from ddtrace.context import Context
 from ddtrace.propagation import http
+
+
+try:
+    from ddtrace.constants import PROPAGATION_STYLE_ALL
+
+    ddtrace.config.propagation_style_inject = PROPAGATION_STYLE_ALL
+except ImportError:
+    pass
 
 
 class HTTPPropagationInject(bm.Scenario):
