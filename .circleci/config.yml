@@ -148,6 +148,8 @@ commands:
             << parameters.store_coverage >>
           steps:
             - save_coverage
+      - run:
+          command: "test -f test-results/junit.xml && datadog-ci junit upload --service dd-trace-py test-results/junit.xml"
       - store_test_results:
           path: test-results
       - store_artifacts:

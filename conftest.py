@@ -103,3 +103,35 @@ def pytest_ignore_collect(path, config):
             # If the current Python version does not meet the minimum required, skip this directory
             if sys.version_info[0:2] < min_required:
                 outcome.force_result(True)
+
+
+def _get_junit_xml(request):
+    """Try to find the LogXML junit xml reporter."""
+    # pytest 3.x
+    if hasattr(request.config, "_xml"):
+        return request.config._xml
+
+    # pytest >= 4.x
+    for elm in request.config._store._store.values():
+        if type(elm).__name__ == "LogXML":
+            return elm
+    return None
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _add_junit_xml_properties(request):
+    """
+    Attach extra properties into the junit xml report
+    """
+    if os.environ.get("RIOT") != "1":
+        return
+
+    xml = _get_junit_xml(request)
+    if not xml:
+        return
+
+    xml.add_global_property("riot.venv.hash", os.environ["RIOT_VENV_HASH"])
+    xml.add_global_property("riot.venv.name", os.environ["RIOT_VENV_NAME"])
+    xml.add_global_property("riot.venv.ident", os.environ["RIOT_VENV_IDENT"])
+    xml.add_global_property("riot.venv.full_pkgs", os.environ["RIOT_VENV_FULL_PKGS"])
+    xml.add_global_property("riot.python.version", os.environ["RIOT_PYTHON_VERSION"])
