@@ -41,11 +41,54 @@ def tags_to_str(tags):
     return ",".join(["%s:%s" % (k, v) for k, v in tags.items()])
 
 
+def _get_packages_available():
+    # type: () -> Dict[str, str]
+    import pkg_resources
+
+    return {(p.key[7:] if p.key.startswith("python-") else p.key): p.version for p in pkg_resources.working_set}
+
+
+def _collect_packages(packages_available):
+    # type: (Dict[str, str]) -> Dict[str, Union[Dict[str, Any], str]]
+    """Collect packages information into a serializable dict."""
+
+    integration_configs = {}  # type: Dict[str, Union[Dict[str, Any], str]]
+
+    for module, enabled in ddtrace._monkey.PATCH_MODULES.items():
+        module_available = module in packages_available
+        module_instrumented = module in ddtrace._monkey._PATCHED_MODULES
+        module_imported = module in sys.modules
+
+        if module_available:
+            if enabled:
+                # Note that integration configs aren't added until the integration
+                # module is imported. This typically occurs as a side-effect of
+                # patch().
+                # This also doesn't load work in all cases since we don't always
+                # name the configuration entry the same as the integration module
+                # name :/
+                config = ddtrace.config._config.get(module, "N/A")
+            else:
+                config = None
+
+            integration_configs[module] = dict(
+                enabled=enabled,
+                instrumented=module_instrumented,
+                module_available=module_available,
+                module_version=packages_available[module],
+                module_imported=module_imported,
+                config=config,
+            )
+        else:
+            # Use N/A here to avoid the additional clutter of an entire
+            # config dictionary for a module that isn't available.
+            integration_configs[module] = "N/A"
+    return integration_configs
+
+
 def collect(tracer):
     # type: (Tracer) -> Dict[str, Any]
     """Collect system and library information into a serializable dict."""
-
-    import pkg_resources
 
     from ddtrace.internal.runtime.runtime_metrics import RuntimeWorker
 
@@ -72,39 +115,9 @@ def collect(tracer):
 
     is_venv = in_venv()
 
-    packages_available = {p.project_name: p.version for p in pkg_resources.working_set}
-    integration_configs = {}  # type: Dict[str, Union[Dict[str, Any], str]]
-    for module, enabled in ddtrace._monkey.PATCH_MODULES.items():
-        # TODO: this check doesn't work in all cases... we need a mapping
-        #       between the module and the library name.
-        module_available = module in packages_available
-        module_instrumented = module in ddtrace._monkey._PATCHED_MODULES
-        module_imported = module in sys.modules
+    packages_available = _get_packages_available()
 
-        if enabled:
-            # Note that integration configs aren't added until the integration
-            # module is imported. This typically occurs as a side-effect of
-            # patch().
-            # This also doesn't load work in all cases since we don't always
-            # name the configuration entry the same as the integration module
-            # name :/
-            config = ddtrace.config._config.get(module, "N/A")
-        else:
-            config = None
-
-        if module_available:
-            integration_configs[module] = dict(
-                enabled=enabled,
-                instrumented=module_instrumented,
-                module_available=module_available,
-                module_version=packages_available[module],
-                module_imported=module_imported,
-                config=config,
-            )
-        else:
-            # Use N/A here to avoid the additional clutter of an entire
-            # config dictionary for a module that isn't available.
-            integration_configs[module] = "N/A"
+    integration_configs = _collect_packages(packages_available)
 
     pip_version = packages_available.get("pip", "N/A")
 
