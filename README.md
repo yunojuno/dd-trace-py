@@ -65,8 +65,8 @@ launch them through:
    using a Python version management tool, such as
    [pyenv](https://github.com/pyenv/pyenv), to utilize multiple versions of
    Python. Install Pyenv: https://github.com/pyenv/pyenv#installation
-3. Install the relevant versions of Python in Pyenv: `pyenv install 3.9.1, 2.7.18, 3.5.10, 3.6.12, 3.7.9, 3.8.7, 3.10.0`
-4. Make those versions available globally: `pyenv global 3.9.1, 2.7.18, 3.5.10, 3.6.12, 3.7.9, 3.8.7, 3.10.0`
+3. Install the relevant versions of Python in Pyenv: `pyenv install 3.9.1 2.7.18 3.5.10 3.6.12 3.7.9 3.8.7 3.10.0`
+4. Make those versions available globally: `pyenv global 3.9.1 2.7.18 3.5.10 3.6.12 3.7.9 3.8.7 3.10.0`
 
 ### Testing
 
