@@ -1,0 +1,312 @@
+[
+  {
+    "name": "aiobotocore",
+    "version": ">= 0.2.3",
+    "auto_instrument": false
+  },
+  {
+    "name": "aiohttp (client)",
+    "version": ">= 2.0",
+    "auto_instrument": true
+  },
+  {
+    "name": "aiohttp (server)",
+    "version": ">= 2.0",
+    "auto_instrument": false
+  },
+  {
+    "name": "aiomysql",
+    "version": ">= 0.1.0",
+    "auto_instrument": true
+  },
+  {
+    "name": "aiopg",
+    "version": ">= 0.12.0, <= 0.16",
+    "auto_instrument": true
+  },
+  {
+    "name": "aioredis",
+    "version": ">= 1.3.0",
+    "auto_instrument": true
+  },
+  {
+    "name": "algoliasearch",
+    "version": ">= 1.20.0",
+    "auto_instrument": true
+  },
+  {
+    "name": "aredis",
+    "version": ">= 1.1.0",
+    "auto_instrument": true
+  },
+  {
+    "name": "asgi",
+    "version": ">= 2.0",
+    "auto_instrument": false
+  },
+  {
+    "name": "asyncio",
+    "version": "*",
+    "auto_instrument": true
+  },
+  {
+    "name": "asyncpg",
+    "version": ">= 0.18.0",
+    "auto_instrument": true
+  },
+  {
+    "name": "boto2",
+    "version": ">= 2.29.0",
+    "auto_instrument": true
+  },
+  {
+    "name": "botocore",
+    "version": ">= 1.4.51",
+    "auto_instrument": true
+  },
+  {
+    "name": "Bottle",
+    "version": ">= 0.11",
+    "auto_instrument": false
+  },
+  {
+    "name": "Cassandra",
+    "version": ">= 3.5",
+    "auto_instrument": true
+  },
+  {
+    "name": "Celery",
+    "version": ">= 3.1",
+    "auto_instrument": true
+  },
+  {
+    "name": "CherryPy",
+    "version": ">= 11.2.0",
+    "auto_instrument": false
+  },
+  {
+    "name": "Consul",
+    "version": ">= 0.7",
+    "auto_instrument": true
+  },
+  {
+    "name": "Django",
+    "version": ">= 1.8",
+    "auto_instrument": true
+  },
+  {
+    "name": "djangorestframework",
+    "version": ">= 3.4",
+    "auto_instrument": false
+  },
+  {
+    "name": "dogpile.cache",
+    "version": ">= 0.6",
+    "auto_instrument": true
+  },
+  {
+    "name": "Elasticsearch",
+    "version": ">= 1.6",
+    "auto_instrument": true
+  },
+  {
+    "name": "Falcon",
+    "version": ">= 1.0",
+    "auto_instrument": false
+  },
+  {
+    "name": "Fastapi",
+    "version": ">= 0.51",
+    "auto_instrument": true
+  },
+  {
+    "name": "Flask",
+    "version": ">= 0.10",
+    "auto_instrument": true
+  },
+  {
+    "name": "Flask Cache",
+    "version": ">= 0.12",
+    "auto_instrument": false
+  },
+  {
+    "name": "gevent",
+    "version": ">= 1.1",
+    "auto_instrument": false
+  },
+  {
+    "name": "Grpc",
+    "version": ">= 1.12.0",
+    "auto_instrument": true
+  },
+  {
+    "name": "httplib",
+    "version": "*",
+    "auto_instrument": true
+  },
+  {
+    "name": "httpx",
+    "version": ">= 0.14.0",
+    "auto_instrument": true
+  },
+  {
+    "name": "Jinja2",
+    "version": ">= 2.7",
+    "auto_instrument": true
+  },
+  {
+    "name": "kombu",
+    "version": ">= 4.0",
+    "auto_instrument": false
+  },
+  {
+    "name": "Mako",
+    "version": ">= 0.1.0",
+    "auto_instrument": true
+  },
+  {
+    "name": "MariaDB",
+    "version": ">= 1.0.0",
+    "auto_instrument": true
+  },
+  {
+    "name": "Molten",
+    "version": ">= 0.7.0",
+    "auto_instrument": true
+  },
+  {
+    "name": "Mongoengine",
+    "version": ">= 0.11",
+    "auto_instrument": true
+  },
+  {
+    "name": "mysql-connector",
+    "version": ">= 2.1",
+    "auto_instrument": false
+  },
+  {
+    "name": "mysqlclient",
+    "version": ">= 1.3",
+    "auto_instrument": false
+  },
+  {
+    "name": "psycopg",
+    "version": ">= 2.7",
+    "auto_instrument": true
+  },
+  {
+    "name": "pylibmc",
+    "version": ">= 1.4",
+    "auto_instrument": true
+  },
+  {
+    "name": "Pylons",
+    "version": ">= 0.9.6",
+    "auto_instrument": false
+  },
+  {
+    "name": "pymemcache",
+    "version": ">= 1.3",
+    "auto_instrument": true
+  },
+  {
+    "name": "Pymongo",
+    "version": ">= 3.0",
+    "auto_instrument": true
+  },
+  {
+    "name": "pymysql",
+    "version": ">= 0.7, <=0.9",
+    "auto_instrument": true
+  },
+  {
+    "name": "PynamoDB",
+    "version": ">= 4.0",
+    "auto_instrument": true
+  },
+  {
+    "name": "PyODBC",
+    "version": ">= 4.0",
+    "auto_instrument": true
+  },
+  {
+    "name": "Pyramid",
+    "version": ">= 1.7",
+    "auto_instrument": false
+  },
+  {
+    "name": "pytest",
+    "version": ">= 4.0.0",
+    "auto_instrument": true
+  },
+  {
+    "name": "redis",
+    "version": ">= 2.6",
+    "auto_instrument": true
+  },
+  {
+    "name": "redis-py-cluster",
+    "version": ">= 1.3.5",
+    "auto_instrument": true
+  },
+  {
+    "name": "Requests",
+    "version": ">= 2.08",
+    "auto_instrument": true
+  },
+  {
+    "name": "RQ",
+    "version": ">= 1.00",
+    "auto_instrument": true
+  },
+  {
+    "name": "Sanic",
+    "version": ">= 19.6.0",
+    "auto_instrument": true
+  },
+  {
+    "name": "Snowflake",
+    "version": ">= 2.0.0",
+    "auto_instrument": false
+  },
+  {
+    "name": "SQLAlchemy",
+    "version": ">= 1.0",
+    "auto_instrument": false
+  },
+  {
+    "name": "SQLite",
+    "version": "*",
+    "auto_instrument": true
+  },
+  {
+    "name": "Starlette",
+    "version": ">= 0.13.0",
+    "auto_instrument": true
+  },
+  {
+    "name": "Tornado",
+    "version": ">= 4.0",
+    "auto_instrument": false
+  },
+  {
+    "name": "urllib3",
+    "version": ">= 1.22",
+    "auto_instrument": false
+  },
+  {
+    "name": "Vertica",
+    "version": ">= 0.6",
+    "auto_instrument": true
+  },
+  {
+    "name": "WSGI",
+    "version": "*",
+    "auto_instrument": false
+  },
+  {
+    "name": "yaaredis",
+    "version": ">= 2.0.0",
+    "auto_instrument": true
+  }
+]
