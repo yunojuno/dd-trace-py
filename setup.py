@@ -140,6 +140,16 @@ documentation][visualization docs].
 """
 
 
+it_extra_link_args = []
+if platform.system() == "Darwin":
+    it_extra_link_args = [
+        "-framework",
+        "Security",
+        "-framework",
+        "Foundation",
+    ]
+
+
 def get_exts_for(name):
     try:
         mod = load_module_from_project_file(
@@ -348,6 +358,16 @@ setup(
                 library_dirs=["ddtrace/appsec/lib"],
                 libraries=ddwaf_libraries,
                 language="c++",
+            ),
+            Cython.Distutils.Extension(
+                "instrumentation_library",
+                [
+                    "ddtrace/internal/telemetry/instrumentation_library.pxd",
+                    "ddtrace/internal/telemetry/instrumentation_library.pyx",
+                ],
+                libraries=["instrumentation_library"],
+                library_dirs=["ddtrace/internal/telemetry"],
+                extra_link_args=it_extra_link_args,
             ),
         ],
         compile_time_env={
