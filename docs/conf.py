@@ -18,6 +18,7 @@
 #
 
 from datetime import datetime
+import json
 import os.path
 import re
 from typing import Any
@@ -667,7 +668,53 @@ class DDTraceReleaseNotesDirective(rst.Directive):
         return node.children
 
 
+class DDIntegrationsTableDirective(rst.Directive):
+    def __init__(self, *args, **kwargs):
+        super(DDIntegrationsTableDirective, self).__init__(*args, **kwargs)
+
+        here = os.path.abspath(os.path.dirname(__file__))
+        self._filename = os.path.join(here, "_integrations.json")
+
+    def run(self):
+        with open(self._filename, "r") as fp:
+            integrations = json.load(fp)
+
+        table = nodes.table()
+        tgroup = nodes.tgroup(cols=3)
+        for _ in range(3):
+            colspec = nodes.colspec(colwidth=1)
+            tgroup.append(colspec)
+        table += tgroup
+
+        thead = nodes.thead()
+        tgroup += thead
+        row = nodes.row()
+        for title in ("Integration", "Supported Version", "Automatically Instrumented"):
+            entry = nodes.entry()
+            entry += nodes.paragraph(text=title)
+            row += entry
+        thead.append(row)
+
+        tbody = nodes.tbody()
+        tgroup += tbody
+
+        for integration in integrations:
+            row = nodes.row()
+            for text in (
+                integration["name"],
+                integration["version"],
+                "Yes" if integration["auto_instrument"] else "No",
+            ):
+                entry = nodes.entry()
+                entry += nodes.paragraph(text=text)
+                row += entry
+            tbody.append(row)
+
+        return [table]
+
+
 def setup(app):
     app.add_directive("ddtrace-release-notes", DDTraceReleaseNotesDirective)
+    app.add_directive("ddtrace-integrations-table", DDIntegrationsTableDirective)
     metadata_dict = {"version": "1.0.0", "parallel_read_safe": True}
     return metadata_dict

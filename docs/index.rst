@@ -37,6 +37,9 @@ contacting support.
 .. |AUTO| replace:: Automatically Instrumented
 
 
+.. ddtrace-integrations-table::
+
+
 +--------------------------------------------------+---------------+----------------+
 |                   Integration                    |  |SUPPVER|    | |AUTO|    [1]_ |
 +==================================================+===============+================+
