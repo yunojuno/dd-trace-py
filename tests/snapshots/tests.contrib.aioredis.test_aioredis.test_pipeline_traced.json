@@ -24,7 +24,7 @@
       "out.port": 6379,
       "out.redis_db": 0,
       "redis.pipeline_length": 4,
-      "system.pid": 44556
+      "system.pid": 85176
     },
     "duration": 1217000,
     "start": 1667241180449294000
