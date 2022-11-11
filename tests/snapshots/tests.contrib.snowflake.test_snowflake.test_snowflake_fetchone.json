@@ -28,8 +28,8 @@
       "_sampling_priority_v1": 1,
       "db.rowcount": 1,
       "out.port": 443,
-      "process_id": 79436,
-      "sql.rows": 1
+      "sql.rows": 1,
+      "system.pid": 79436
     },
     "duration": 1675000,
     "start": 1667243931406312000

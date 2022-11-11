@@ -23,8 +23,8 @@
       "_sampling_priority_v1": 1,
       "out.port": 6379,
       "out.redis_db": 0,
-      "process_id": 44520,
-      "redis.args_length": 2
+      "redis.args_length": 2,
+      "system.pid": 44520
     },
     "duration": 1140000,
     "start": 1667241175586826000
@@ -54,8 +54,8 @@
       "_sampling_priority_v1": 1,
       "out.port": 6379,
       "out.redis_db": 0,
-      "process_id": 44520,
-      "redis.args_length": 3
+      "redis.args_length": 3,
+      "system.pid": 44520
     },
     "duration": 879000,
     "start": 1667241175588044000
@@ -85,8 +85,8 @@
       "_sampling_priority_v1": 1,
       "out.port": 6379,
       "out.redis_db": 0,
-      "process_id": 44520,
-      "redis.args_length": 2
+      "redis.args_length": 2,
+      "system.pid": 44520
     },
     "duration": 718000,
     "start": 1667241175588972000
