@@ -445,7 +445,7 @@ venv = Venv(
                     },
                     venvs=[
                         Venv(
-                            command="pytest {cmdargs} --ignore=tests/contrib/pymemcache/autopatch tests/contrib/pymemcache"
+                            command="pytest {cmdargs} --ignore=tests/contrib/pymemcache/autopatch tests/contrib/pymemcache"  # noqa: E501
                         ),
                         Venv(
                             command="python tests/ddtrace_run.py pytest {cmdargs} tests/contrib/pymemcache/autopatch/"
