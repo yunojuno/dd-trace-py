@@ -124,7 +124,7 @@ class TraceMiddleware:
         )
 
         # set component tag equal to name of integration
-        span.set_tag_str(COMPONENT, config.integration_config.integration_name)
+        span.set_tag_str(COMPONENT, self.integration_config.integration_name)
 
         # set span.kind to the type of request being performed
         span.set_tag_str(SPAN_KIND, SPAN_SERVER)
