@@ -365,61 +365,144 @@ venv = Venv(
                 ),
             ],
         ),
+        # Group of tests which can be run in parallel using pytest-xdist
         Venv(
-            name="vendor",
-            command="pytest {cmdargs} tests/vendor/",
-            pys=select_pys(),
             pkgs={
-                "msgpack": ["~=1.0.0", latest],
+                "pytest-randomly": latest,
+                "pytest-xdist": latest,
             },
-        ),
-        Venv(
-            name="httplib",
-            command="pytest {cmdargs} tests/contrib/httplib",
-            pys=select_pys(),
-        ),
-        Venv(
-            name="test_logging",
-            command="pytest {cmdargs} tests/contrib/logging",
-            pys=select_pys(),
-        ),
-        Venv(
-            name="falcon",
-            command="pytest {cmdargs} tests/contrib/falcon",
             venvs=[
-                # Falcon 1.x
-                # Python 2.7+
                 Venv(
-                    pys=select_pys(max_version="3.9"),
+                    name="vendor",
+                    command="pytest {cmdargs} tests/vendor/",
+                    pys=select_pys(),
                     pkgs={
-                        "falcon": [
-                            "~=1.4.1",
-                            "~=1.4",  # latest 1.x
-                        ]
+                        "msgpack": ["~=1.0.0", latest],
                     },
                 ),
-                # Falcon 2.x
-                # Python 3.5+
                 Venv(
-                    pys=select_pys(min_version="3.5"),
-                    pkgs={
-                        "falcon": [
-                            "~=2.0.0",
-                            "~=2.0",  # latest 2.x
-                        ]
-                    },
+                    name="httplib",
+                    command="pytest {cmdargs} tests/contrib/httplib",
+                    pys=select_pys(),
                 ),
-                # Falcon 3.x
-                # Python 3.5+
                 Venv(
-                    pys=select_pys(min_version="3.5"),
+                    name="test_logging",
+                    command="pytest {cmdargs} tests/contrib/logging",
+                    pys=select_pys(),
+                ),
+                Venv(
+                    name="mako",
+                    command="pytest {cmdargs} tests/contrib/mako",
+                    pys=select_pys(),
+                    pkgs={"mako": ["<1.0.0", "~=1.0.0", "~=1.1.0", latest]},
+                ),
+                Venv(
+                    name="requests",
+                    command="pytest {cmdargs} tests/contrib/requests",
+                    venvs=[
+                        Venv(
+                            pys=select_pys(max_version="3.9"),
+                            pkgs={
+                                "requests-mock": ">=1.4",
+                                "requests": [
+                                    ">=2.8,<2.9",
+                                    ">=2.10,<2.11",
+                                    ">=2.12,<2.13",
+                                    ">=2.14,<2.15",
+                                    ">=2.16,<2.17",
+                                    ">=2.18,<2.19",
+                                    ">=2.20,<2.21",
+                                    latest,
+                                ],
+                            },
+                        ),
+                        Venv(
+                            pys=select_pys(min_version="3.10"),
+                            pkgs={
+                                "requests-mock": ">=1.4",
+                                "requests": [
+                                    ">=2.20,<2.21",
+                                    latest,
+                                ],
+                            },
+                        ),
+                    ],
+                ),
+                Venv(
+                    name="pymemcache",
+                    pys=select_pys(),
                     pkgs={
-                        "falcon": [
-                            "~=3.0.0",
-                            "~=3.0",  # latest 3.x
+                        "pymemcache": [
+                            "~=1.4",  # Most recent 1.x release
+                            "~=2.0",  # Most recent 2.x release
+                            "~=3.0.1",
+                            "~=3.1.1",
+                            "~=3.2.0",
+                            "~=3.3.0",
+                            "~=3.4.2",
                             latest,
                         ]
                     },
+                    venvs=[
+                        Venv(
+                            command="pytest {cmdargs} --ignore=tests/contrib/pymemcache/autopatch tests/contrib/pymemcache"
+                        ),
+                        Venv(
+                            command="python tests/ddtrace_run.py pytest {cmdargs} tests/contrib/pymemcache/autopatch/"
+                        ),
+                    ],
+                ),
+                Venv(
+                    name="falcon",
+                    command="pytest {cmdargs} tests/contrib/falcon",
+                    venvs=[
+                        # Falcon 1.x
+                        # Python 2.7+
+                        Venv(
+                            pys=select_pys(max_version="3.9"),
+                            pkgs={
+                                "falcon": [
+                                    "~=1.4.1",
+                                    "~=1.4",  # latest 1.x
+                                ]
+                            },
+                        ),
+                        # Falcon 2.x
+                        # Python 3.5+
+                        Venv(
+                            pys=select_pys(min_version="3.5"),
+                            pkgs={
+                                "falcon": [
+                                    "~=2.0.0",
+                                    "~=2.0",  # latest 2.x
+                                ]
+                            },
+                        ),
+                        # Falcon 3.x
+                        # Python 3.5+
+                        Venv(
+                            pys=select_pys(min_version="3.5"),
+                            pkgs={
+                                "falcon": [
+                                    "~=3.0.0",
+                                    "~=3.0",  # latest 3.x
+                                    latest,
+                                ]
+                            },
+                        ),
+                    ],
+                ),
+                Venv(
+                    name="wsgi",
+                    command="pytest {cmdargs} tests/contrib/wsgi",
+                    venvs=[
+                        Venv(
+                            pys=select_pys(),
+                            pkgs={
+                                "WebTest": latest,
+                            },
+                        ),
+                    ],
                 ),
             ],
         ),
@@ -1042,12 +1125,6 @@ venv = Venv(
             ],
         ),
         Venv(
-            name="mako",
-            command="pytest {cmdargs} tests/contrib/mako",
-            pys=select_pys(),
-            pkgs={"mako": ["<1.0.0", "~=1.0.0", "~=1.1.0", latest]},
-        ),
-        Venv(
             name="mysql",
             command="pytest {cmdargs} tests/contrib/mysql",
             venvs=[
@@ -1085,26 +1162,6 @@ venv = Venv(
                     # psycopg2>=2.9.2 supports Python 3.11
                     pkgs={"psycopg2-binary": ["~=2.9.2", latest]},
                 ),
-            ],
-        ),
-        Venv(
-            name="pymemcache",
-            pys=select_pys(),
-            pkgs={
-                "pymemcache": [
-                    "~=1.4",  # Most recent 1.x release
-                    "~=2.0",  # Most recent 2.x release
-                    "~=3.0.1",
-                    "~=3.1.1",
-                    "~=3.2.0",
-                    "~=3.3.0",
-                    "~=3.4.2",
-                    latest,
-                ]
-            },
-            venvs=[
-                Venv(command="pytest {cmdargs} --ignore=tests/contrib/pymemcache/autopatch tests/contrib/pymemcache"),
-                Venv(command="python tests/ddtrace_run.py pytest {cmdargs} tests/contrib/pymemcache/autopatch/"),
             ],
         ),
         Venv(
@@ -1217,50 +1274,6 @@ venv = Venv(
                             },
                         ),
                     ],
-                ),
-            ],
-        ),
-        Venv(
-            name="requests",
-            command="pytest {cmdargs} tests/contrib/requests",
-            venvs=[
-                Venv(
-                    pys=select_pys(max_version="3.9"),
-                    pkgs={
-                        "requests-mock": ">=1.4",
-                        "requests": [
-                            ">=2.8,<2.9",
-                            ">=2.10,<2.11",
-                            ">=2.12,<2.13",
-                            ">=2.14,<2.15",
-                            ">=2.16,<2.17",
-                            ">=2.18,<2.19",
-                            ">=2.20,<2.21",
-                            latest,
-                        ],
-                    },
-                ),
-                Venv(
-                    pys=select_pys(min_version="3.10"),
-                    pkgs={
-                        "requests-mock": ">=1.4",
-                        "requests": [
-                            ">=2.20,<2.21",
-                            latest,
-                        ],
-                    },
-                ),
-            ],
-        ),
-        Venv(
-            name="wsgi",
-            command="pytest {cmdargs} tests/contrib/wsgi",
-            venvs=[
-                Venv(
-                    pys=select_pys(),
-                    pkgs={
-                        "WebTest": latest,
-                    },
                 ),
             ],
         ),

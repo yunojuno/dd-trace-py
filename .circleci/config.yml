@@ -131,6 +131,9 @@ commands:
       wait:
         type: string
         default: ""
+      extra_args:
+        type: string
+        default: ""
       snapshot:
         type: boolean
         default: false
@@ -159,7 +162,7 @@ commands:
 
                 command: |
                   mv .riot .ddriot
-                  riot list -i '<<parameters.pattern>>' | circleci tests split | xargs -I PY ./scripts/ddtest riot -v run --python=PY --exitfirst --pass-env -s '<< parameters.pattern >>'
+                  riot list -i '<<parameters.pattern>>' | circleci tests split | xargs -I PY ./scripts/ddtest riot -v run --python=PY --exitfirst --pass-env -s '<< parameters.pattern >>' -- <<parameters.extra_args>>
       - unless:
           condition:
               << parameters.snapshot >>
@@ -559,6 +562,8 @@ jobs:
     steps:
       - run_test:
           pattern: 'vendor'
+          # Enable pytest-xdist
+          extra_args: '-n auto'
 
   futures:
     <<: *contrib_job_small
@@ -590,6 +595,7 @@ jobs:
     steps:
       - run_test:
           pattern: 'test_logging'
+          extra_args: '-n auto'
 
   asyncio:
     <<: *contrib_job_small
@@ -701,6 +707,7 @@ jobs:
     steps:
       - run_test:
           pattern: 'falcon'
+          extra_args: '-n auto'
 
   django:
     <<: *machine_executor
@@ -782,6 +789,7 @@ jobs:
           pattern: "httplib"
           snapshot: true
           docker_services: 'httpbin_local'
+          extra_args: "-n auto"
 
   httpx:
     <<: *machine_executor
@@ -870,6 +878,7 @@ jobs:
     steps:
       - run_test:
           pattern: "pymemcache"
+          extra_args: '-n auto'
 
   mongoengine:
     <<: *machine_executor
@@ -918,6 +927,7 @@ jobs:
     steps:
       - run_test:
           pattern: "requests"
+          extra_args: "-n auto"
 
   requestsgevent:
     <<: *contrib_job
@@ -1118,6 +1128,7 @@ jobs:
     steps:
       - run_test:
           pattern: 'mako'
+          extra_args: '-n auto'
 
   algoliasearch:
     <<: *contrib_job
