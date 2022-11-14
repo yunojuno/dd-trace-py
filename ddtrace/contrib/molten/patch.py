@@ -11,8 +11,8 @@ from ... import config
 from ...constants import ANALYTICS_SAMPLE_RATE_KEY
 from ...constants import COMPONENT
 from ...constants import SPAN_KIND
-from ...constants import SPAN_SERVER
 from ...constants import SPAN_MEASURED_KEY
+from ...constants import SPAN_SERVER
 from ...ext import SpanTypes
 from ...internal.compat import urlencode
 from ...internal.utils.formats import asbool
