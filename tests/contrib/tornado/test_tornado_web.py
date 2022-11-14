@@ -277,7 +277,7 @@ class TestTornadoWeb(TornadoTestCase):
         assert self.get_url("/redirect/") == redirect_span.get_tag(http.URL)
         assert 0 == redirect_span.error
         assert redirect_span.get_tag("component") == "tornado"
-        assert request_span.get_tag("span.kind") == "server"
+        assert redirect_span.get_tag("span.kind") == "server"
 
         success_span = traces[1][0]
         assert "tornado-web" == success_span.service
@@ -289,7 +289,7 @@ class TestTornadoWeb(TornadoTestCase):
         assert self.get_url("/success/") == success_span.get_tag(http.URL)
         assert 0 == success_span.error
         assert success_span.get_tag("component") == "tornado"
-        assert request_span.get_tag("span.kind") == "server"
+        assert success_span.get_tag("span.kind") == "server"
 
     def test_static_handler(self):
         # it should trace the access to static files
@@ -377,7 +377,7 @@ class TestTornadoWeb(TornadoTestCase):
         assert self.get_url("/success/") == dd_span.get_tag(http.URL)
         assert 0 == dd_span.error
         assert dd_span.get_tag("component") == "tornado"
-        assert request_span.get_tag("span.kind") == "server"
+        assert dd_span.get_tag("span.kind") == "server"
 
 
 class TestTornadoWebAnalyticsDefault(TornadoTestCase):
