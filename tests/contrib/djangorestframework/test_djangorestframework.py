@@ -37,7 +37,6 @@ def test_trace_exceptions(client, test_spans):  # noqa flake8 complains about sh
     assert err_span.get_tag("error.msg") == "Authentication credentials were not provided."
     assert "NotAuthenticated" in err_span.get_tag("error.stack")
     assert err_span.get_tag("component") == "django"
-    assert err_span.get_tag("span.kind") == "server"
 
 
 @pytest.mark.skipif(django.VERSION < (1, 10), reason="requires django version >= 1.10")

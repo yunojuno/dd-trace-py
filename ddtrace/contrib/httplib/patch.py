@@ -128,6 +128,9 @@ def _wrap_putrequest(func, instance, args, kwargs):
             # set component tag equal to name of integration
             span.set_tag_str(COMPONENT, config.httplib.integration_name)
 
+            # set span.kind to the type of operation being performed
+            span.set_tag_str(SPAN_KIND, SPAN_SERVER)
+
             setattr(instance, "_datadog_span", span)
 
         method, path = args[:2]
