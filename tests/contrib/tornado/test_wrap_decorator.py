@@ -35,6 +35,7 @@ class TestTornadoWebWrapper(TornadoTestCase):
         assert request_span.duration >= 0.05
         assert nested_span.duration >= 0.05
         assert request_span.get_tag("component") == "tornado"
+        assert request_span.get_tag("span.kind") == "server"
         assert nested_span.get_tag("component") == "tornado"
 
     def test_nested_exception_wrap_handler(self):
@@ -67,6 +68,7 @@ class TestTornadoWebWrapper(TornadoTestCase):
         assert request_span.duration >= 0.05
         assert nested_span.duration >= 0.05
         assert request_span.get_tag("component") == "tornado"
+        assert request_span.get_tag("span.kind") == "server"
         assert nested_span.get_tag("component") == "tornado"
 
     def test_sync_nested_wrap_handler(self):
@@ -95,6 +97,7 @@ class TestTornadoWebWrapper(TornadoTestCase):
         assert request_span.duration >= 0.05
         assert nested_span.duration >= 0.05
         assert request_span.get_tag("component") == "tornado"
+        assert request_span.get_tag("span.kind") == "server"
         assert nested_span.get_tag("component") == "tornado"
 
     def test_sync_nested_exception_wrap_handler(self):
@@ -127,6 +130,7 @@ class TestTornadoWebWrapper(TornadoTestCase):
         assert request_span.duration >= 0.05
         assert nested_span.duration >= 0.05
         assert request_span.get_tag("component") == "tornado"
+        assert request_span.get_tag("span.kind") == "server"
         assert nested_span.get_tag("component") == "tornado"
 
     def test_nested_wrap_executor_handler(self):
@@ -155,6 +159,7 @@ class TestTornadoWebWrapper(TornadoTestCase):
         assert request_span.duration >= 0.05
         assert nested_span.duration >= 0.05
         assert request_span.get_tag("component") == "tornado"
+        assert request_span.get_tag("span.kind") == "server"
         assert nested_span.get_tag("component") == "tornado"
 
     def test_nested_exception_wrap_executor_handler(self):
@@ -188,4 +193,5 @@ class TestTornadoWebWrapper(TornadoTestCase):
         assert request_span.duration >= 0.05
         assert nested_span.duration >= 0.05
         assert request_span.get_tag("component") == "tornado"
+        assert request_span.get_tag("span.kind") == "server"
         assert nested_span.get_tag("component") == "tornado"
