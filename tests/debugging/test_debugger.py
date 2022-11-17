@@ -683,6 +683,7 @@ def test_probe_status_logging(monkeypatch):
 
 
 @pytest.mark.parametrize("duration", [1e5, 1e6, 1e7])
+@pytest.mark.flaky(reruns=3)  # FIXME: this test is flaky
 def test_debugger_function_probe_duration(duration):
     from tests.submod.stuff import durationstuff
 
