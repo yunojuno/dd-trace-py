@@ -443,6 +443,7 @@ jobs:
       name: win/default
       shell: bash.exe
     steps:
+      - run: reg add HKLM\SYSTEM\CurrentControlSet\Control\FileSystem /v LongPathsEnabled /d 1 /t REG_DWORD /f
       - run: choco install -y python --version=3.5.4 --side-by-side
       - run_tox_scenario:
           store_coverage: false
