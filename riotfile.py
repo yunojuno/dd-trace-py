@@ -296,6 +296,123 @@ venv = Venv(
             },
         ),
         Venv(
+            name="profiler",
+            # unpin py-cpuinfo after issue is closed https://github.com/workhorsy/py-cpuinfo/issues/177
+            # TODO: remove py dependency once https://github.com/ionelmc/pytest-benchmark/pull/227 is released
+            pkgs={
+                "py": latest,
+                "pytest-benchmark": latest,
+                "py-cpuinfo": "==8.0.0",
+                "gunicorn": latest,
+                "protobuf": ">=3.0,<3.18",
+                "tenacity": ">=5",
+            },
+            env={"DD_REMOTE_CONFIGURATION_ENABLED": "false"},
+            venvs=[
+                Venv(
+                    pys="2.7",
+                    pkgs={"uwsgi": latest},
+                    command="python -m tests.profiling.run pytest --capture=no --verbosity=2 --benchmark-disable"
+                    " --ignore-glob='*asyncio*' {cmdargs} tests/profiling",
+                    venvs=[
+                        # no gevent and no pinned reqs
+                        Venv(),
+                        # profiler minreqs
+                        Venv(
+                            pkgs={"tenacity": "==5.0.1", "protobuf": "==3.0.0"},
+                            venvs=[
+                                # minreqs
+                                Venv(),
+                                # minreqs with gevent
+                                # https://github.com/gevent/gevent/issues/1674
+                                Venv(
+                                    pkgs={"gevent": "==1.1.0", "greenlet": "==0.4.16"},
+                                    env={"DD_PROFILE_TEST_GEVENT": "1"},
+                                ),
+                            ],
+                        ),
+                        # profiler with profiler with latest gevent
+                        Venv(
+                            pkgs={"gunicorn[gevent]": latest},
+                            env={"DD_PROFILE_TEST_GEVENT": "1"},
+                        ),
+                    ],
+                ),
+                Venv(
+                    pys=select_pys(min_version="3.5", max_version="3.9"),
+                    pkgs={"pytest-asyncio": latest, "uwsgi": latest},
+                    command="python -m tests.profiling.run pytest --no-cov --capture=no --verbosity=2"
+                    " --benchmark-disable {cmdargs} tests/profiling",
+                    venvs=[
+                        # no gevent and no pinned reqs
+                        Venv(),
+                        # tests protobuf compatibility
+                        Venv(
+                            select_pys(min_version="3.7", max_version="3.9"),
+                            pkgs={"protobuf": ["~=3.0", "~=4.0"]},
+                        ),
+                        # profiler minreqs
+                        Venv(
+                            pkgs={"tenacity": "==5.0.1", "protobuf": "==3.0.0"},
+                            venvs=[
+                                # min reqs
+                                Venv(),
+                                # min reqs with gevent
+                                Venv(
+                                    pys=select_pys(max_version="3.8"),
+                                    # https://github.com/gevent/gevent/issues/1674
+                                    pkgs={"gevent": "==1.4.0", "greenlet": "==0.4.16"},
+                                    env={"DD_PROFILE_TEST_GEVENT": "1"},
+                                ),
+                                Venv(
+                                    pys="3.9",
+                                    # https://github.com/gevent/gevent/issues/1674
+                                    pkgs={"gevent": "==20.6.1", "greenlet": "==0.4.16"},
+                                    env={"DD_PROFILE_TEST_GEVENT": "1"},
+                                ),
+                            ],
+                        ),
+                        # profiler with latest gevent
+                        Venv(
+                            pkgs={"gunicorn[gevent]": latest},
+                            env={"DD_PROFILE_TEST_GEVENT": "1"},
+                        ),
+                    ],
+                ),
+                Venv(
+                    pys="3.10",
+                    pkgs={"pytest-asyncio": latest},
+                    command="python -m tests.profiling.run pytest --no-cov --capture=no --verbosity=2"
+                    " --benchmark-disable {cmdargs} tests/profiling",
+                    venvs=[
+                        # no gevent and no pinned reqs
+                        Venv(),
+                        # tests protobuf compatibility
+                        Venv(pkgs={"protobuf": ["~=3.0", "~=4.0"]}),
+                        # profiler minreqs
+                        Venv(
+                            pkgs={"tenacity": "==5.0.1", "protobuf": "==3.8.0"},
+                            venvs=[
+                                # minreqs
+                                Venv(),
+                                # minreqs with gevent
+                                # https://github.com/gevent/gevent/issues/1674
+                                Venv(
+                                    pkgs={"gevent": "==21.8.0", "greenlet": "==1.1.0"},
+                                    env={"DD_PROFILE_TEST_GEVENT": "1"},
+                                ),
+                            ],
+                        ),
+                        # profiler with latest gevent
+                        Venv(
+                            pkgs={"gunicorn[gevent]": latest},
+                            env={"DD_PROFILE_TEST_GEVENT": "1"},
+                        ),
+                    ],
+                ),
+            ],
+        ),
+        Venv(
             name="telemetry",
             command="pytest {cmdargs} tests/telemetry/",
             pys=select_pys(),
