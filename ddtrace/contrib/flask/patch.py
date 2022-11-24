@@ -1,11 +1,13 @@
 import json
 
 import flask
+from flask import Response
 from six import BytesIO
 import werkzeug
 from werkzeug.exceptions import BadRequest
 import xmltodict
 
+from ...internal import _context
 
 # Not all versions of flask/werkzeug have this mixin
 try:
@@ -15,7 +17,7 @@ try:
 except ImportError:
     _HAS_JSON_MIXIN = False
 
-from ddtrace import Pin
+from ddtrace import Pin, constants
 from ddtrace import config
 from ddtrace.vendor.wrapt import wrap_function_wrapper as _w
 
@@ -313,9 +315,69 @@ def _wrap_start_response(func, span, request):
             span, config.flask, status_code=code, response_headers=headers, route=span.get_tag(FLASK_URL_RULE)
         )
 
+        if config._appsec_enabled and _context.get_item("http.request.blocked", span=span):
+            return func(403, headers)
+
         return func(status_code, headers)
 
     return traced_start_response
+
+
+def _extract_body(request, environ):
+    req_body = None
+
+    if config._appsec_enabled and request.method in _BODY_METHODS:
+        content_type = request.content_type
+        wsgi_input = environ.get("wsgi.input", "")
+        seekable = False
+
+        # Copy wsgi input if not seekable
+        if wsgi_input:
+            try:
+                seekable = wsgi_input.seekable()
+            except AttributeError:
+                pass  # remain False
+            if not seekable:
+                content_length = int(environ.get("CONTENT_LENGTH", 0))
+                body = wsgi_input.read(content_length) if content_length else wsgi_input.read()
+                environ["wsgi.input"] = BytesIO(body)
+
+        try:
+            if content_type == "application/json":
+                if _HAS_JSON_MIXIN and hasattr(request, "json"):
+                    req_body = request.json
+                else:
+                    req_body = json.loads(request.data.decode("UTF-8"))
+            elif content_type in ("application/xml", "text/xml"):
+                req_body = xmltodict.parse(request.get_data())
+            elif hasattr(request, "values"):
+                req_body = request.values.to_dict()
+            elif hasattr(request, "args"):
+                req_body = request.args.to_dict()
+            elif hasattr(request, "form"):
+                req_body = request.form.to_dict()
+            else:
+                req_body = request.get_data()
+        except (
+                AttributeError,
+                RuntimeError,
+                TypeError,
+                BadRequest,
+                ValueError,
+                JSONDecodeError,
+                xmltodict.expat.ExpatError,
+                xmltodict.ParsingInterrupted,
+        ):
+            log.warning("Failed to parse werkzeug request body", exc_info=True)
+        finally:
+            # Reset wsgi input to the beginning
+            if wsgi_input:
+                if seekable:
+                    wsgi_input.seek(0)
+                else:
+                    environ["wsgi.input"] = BytesIO(body)
+
+    return req_body
 
 
 @with_instance_pin
@@ -346,6 +408,9 @@ def traced_wsgi_app(pin, wrapped, instance, args, kwargs):
         service=trace_utils.int_service(pin, config.flask),
         resource=resource,
         span_type=SpanTypes.WEB,
+        peer_ip=request.remote_addr,
+        headers=request.headers,
+        headers_case_sensitive=False
     ) as span:
         span.set_tag(SPAN_MEASURED_KEY)
         # set analytics sample rate with global config enabled
@@ -354,59 +419,10 @@ def traced_wsgi_app(pin, wrapped, instance, args, kwargs):
             span.set_tag(ANALYTICS_SAMPLE_RATE_KEY, sample_rate)
 
         span.set_tag_str(FLASK_VERSION, flask_version_str)
+
         start_response = _wrap_start_response(start_response, span, request)
 
-        req_body = None
-        if config._appsec_enabled and request.method in _BODY_METHODS:
-            content_type = request.content_type
-            wsgi_input = environ.get("wsgi.input", "")
-
-            # Copy wsgi input if not seekable
-            if wsgi_input:
-                try:
-                    seekable = wsgi_input.seekable()
-                except AttributeError:
-                    seekable = False
-                if not seekable:
-                    content_length = int(environ.get("CONTENT_LENGTH", 0))
-                    body = wsgi_input.read(content_length) if content_length else wsgi_input.read()
-                    environ["wsgi.input"] = BytesIO(body)
-
-            try:
-                if content_type == "application/json":
-                    if _HAS_JSON_MIXIN and hasattr(request, "json"):
-                        req_body = request.json
-                    else:
-                        req_body = json.loads(request.data.decode("UTF-8"))
-                elif content_type in ("application/xml", "text/xml"):
-                    req_body = xmltodict.parse(request.get_data())
-                elif hasattr(request, "values"):
-                    req_body = request.values.to_dict()
-                elif hasattr(request, "args"):
-                    req_body = request.args.to_dict()
-                elif hasattr(request, "form"):
-                    req_body = request.form.to_dict()
-                else:
-                    req_body = request.get_data()
-            except (
-                AttributeError,
-                RuntimeError,
-                TypeError,
-                BadRequest,
-                ValueError,
-                JSONDecodeError,
-                xmltodict.expat.ExpatError,
-                xmltodict.ParsingInterrupted,
-            ):
-                log.warning("Failed to parse werkzeug request body", exc_info=True)
-            finally:
-                # Reset wsgi input to the beginning
-                if wsgi_input:
-                    if seekable:
-                        wsgi_input.seek(0)
-                    else:
-                        environ["wsgi.input"] = BytesIO(body)
-
+        req_body = _extract_body(request, environ)
         trace_utils.set_http_meta(
             span,
             config.flask,
