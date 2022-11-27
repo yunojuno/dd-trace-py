@@ -303,79 +303,112 @@ venv = Venv(
                 "py": latest,
                 "pytest-benchmark": latest,
                 "py-cpuinfo": "==8.0.0",
-                "gunicorn": latest,
-                "protobuf": ">=3.0,<3.18",
-                "tenacity": ">=5",
+                **({} if sys.platform == "win32" else {"uwsgi": latest}),
             },
             env={"DD_REMOTE_CONFIGURATION_ENABLED": "false"},
             venvs=[
                 Venv(
                     pys="2.7",
-                    pkgs={"uwsgi": latest},
                     command="python -m tests.profiling.run pytest --capture=no --verbosity=2 --benchmark-disable"
                     " --ignore-glob='*asyncio*' {cmdargs} tests/profiling",
+                    pkgs={"enum34": latest},
                     venvs=[
-                        # no gevent and no pinned reqs
-                        Venv(),
-                        # profiler minreqs
+                        # profiler with minreqs
+                        # https://github.com/gevent/gevent/issues/1674
                         Venv(
-                            pkgs={"tenacity": "==5.0.1", "protobuf": "==3.0.0"},
-                            venvs=[
-                                # minreqs
-                                Venv(),
-                                # minreqs with gevent
-                                # https://github.com/gevent/gevent/issues/1674
-                                Venv(
-                                    pkgs={"gevent": "==1.1.0", "greenlet": "==0.4.16"},
-                                    env={"DD_PROFILE_TEST_GEVENT": "1"},
-                                ),
-                            ],
-                        ),
-                        # profiler with profiler with latest gevent
-                        Venv(
-                            pkgs={"gunicorn[gevent]": latest},
+                            pkgs={
+                                "gunicorn": latest,
+                                "tenacity": "==5.0.1",
+                                "protobuf": "==3.0.0",
+                                "gevent": "==1.1.0",
+                                "greenlet": "==0.4.16",
+                            },
                             env={"DD_PROFILE_TEST_GEVENT": "1"},
+                        ),
+                        # profiler with latest reqs
+                        Venv(
+                            pkgs={
+                                "gunicorn[gevent]": latest,
+                                "protobuf": "~=3.17.3",
+                                "tenacity": latest,
+                            },
+                            env={"DD_PROFILE_TEST_GEVENT": "1"},
+                        ),
+                        # profiler with nogevent
+                        Venv(
+                            pkgs={
+                                "gunicorn": latest,
+                                "protobuf": "~=3.17.3",
+                                "tenacity": latest,
+                            },
                         ),
                     ],
                 ),
                 Venv(
-                    pys=select_pys(min_version="3.5", max_version="3.9"),
-                    pkgs={"pytest-asyncio": latest, "uwsgi": latest},
+                    pkgs={"pytest-asyncio": latest},
                     command="python -m tests.profiling.run pytest --no-cov --capture=no --verbosity=2"
                     " --benchmark-disable {cmdargs} tests/profiling",
                     venvs=[
-                        # no gevent and no pinned reqs
-                        Venv(),
-                        # tests protobuf compatibility
+                        # profiler with minreqs
+                        # https://github.com/gevent/gevent/issues/1674
                         Venv(
-                            select_pys(min_version="3.7", max_version="3.9"),
-                            pkgs={"protobuf": ["~=3.0", "~=4.0"]},
-                        ),
-                        # profiler minreqs
-                        Venv(
-                            pkgs={"tenacity": "==5.0.1", "protobuf": "==3.0.0"},
-                            venvs=[
-                                # min reqs
-                                Venv(),
-                                # min reqs with gevent
-                                Venv(
-                                    pys=select_pys(max_version="3.8"),
-                                    # https://github.com/gevent/gevent/issues/1674
-                                    pkgs={"gevent": "==1.4.0", "greenlet": "==0.4.16"},
-                                    env={"DD_PROFILE_TEST_GEVENT": "1"},
-                                ),
-                                Venv(
-                                    pys="3.9",
-                                    # https://github.com/gevent/gevent/issues/1674
-                                    pkgs={"gevent": "==20.6.1", "greenlet": "==0.4.16"},
-                                    env={"DD_PROFILE_TEST_GEVENT": "1"},
-                                ),
-                            ],
-                        ),
-                        # profiler with latest gevent
-                        Venv(
-                            pkgs={"gunicorn[gevent]": latest},
+                            pys=select_pys(min_version="3.5", max_version="3.8"),
+                            pkgs={
+                                "gunicorn": latest,
+                                "tenacity": "==5.0.1",
+                                "protobuf": "==3.0.0",
+                                "gevent": "==1.4.0",
+                                "greenlet": "==0.4.16",
+                            },
                             env={"DD_PROFILE_TEST_GEVENT": "1"},
+                        ),
+                        Venv(
+                            pys="3.9",
+                            pkgs={
+                                "gunicorn": latest,
+                                "tenacity": "==5.0.1",
+                                "protobuf": "==3.0.0",
+                                "gevent": "==20.6.1",
+                                "greenlet": "==0.4.16",
+                            },
+                            env={"DD_PROFILE_TEST_GEVENT": "1"},
+                        ),
+                        # profiler with latest reqs
+                        Venv(
+                            pys="3.5",
+                            pkgs={
+                                "gunicorn[gevent]": latest,
+                                "protobuf": "~=3.17.3",
+                                "tenacity": latest,
+                            },
+                            env={"DD_PROFILE_TEST_GEVENT": "1"},
+                        ),
+                        Venv(
+                            pys="3.6",
+                            pkgs={
+                                "gunicorn[gevent]": latest,
+                                "protobuf": "~=3.0",
+                                "tenacity": latest,
+                            },
+                            env={"DD_PROFILE_TEST_GEVENT": "1"},
+                        ),
+                        Venv(
+                            pys=select_pys(min_version="3.7", max_version="3.9"),
+                            pkgs={
+                                "gunicorn[gevent]": latest,
+                                "protobuf": latest,
+                                "tenacity": latest,
+                            },
+                            env={"DD_PROFILE_TEST_GEVENT": "1"},
+                        ),
+                        # profiler without gevent
+                        Venv(
+                            pys=select_pys(min_version="3.5", max_version="3.9"),
+                            pkgs={
+                                "gunicorn": latest,
+                                "protobuf": ">=3.0,<3.18",
+                                "tenacity": latest,
+                            },
                         ),
                     ],
                 ),
@@ -385,28 +418,34 @@ venv = Venv(
                     command="python -m tests.profiling.run pytest --no-cov --capture=no --verbosity=2"
                     " --benchmark-disable {cmdargs} tests/profiling",
                     venvs=[
-                        # no gevent and no pinned reqs
-                        Venv(),
-                        # tests protobuf compatibility
-                        Venv(pkgs={"protobuf": ["~=3.0", "~=4.0"]}),
-                        # profiler minreqs
+                        # profiler with minreqs
+                        # https://github.com/gevent/gevent/issues/1674
                         Venv(
-                            pkgs={"tenacity": "==5.0.1", "protobuf": "==3.8.0"},
-                            venvs=[
-                                # minreqs
-                                Venv(),
-                                # minreqs with gevent
-                                # https://github.com/gevent/gevent/issues/1674
-                                Venv(
-                                    pkgs={"gevent": "==21.8.0", "greenlet": "==1.1.0"},
-                                    env={"DD_PROFILE_TEST_GEVENT": "1"},
-                                ),
-                            ],
-                        ),
-                        # profiler with latest gevent
-                        Venv(
-                            pkgs={"gunicorn[gevent]": latest},
+                            pkgs={
+                                "gunicorn": latest,
+                                "tenacity": "==5.0.1",
+                                "protobuf": "~=3.0",
+                                "gevent": "==21.8.0",
+                                "greenlet": "==1.1.0",
+                            },
                             env={"DD_PROFILE_TEST_GEVENT": "1"},
+                        ),
+                        # profiler with latest reqs
+                        Venv(
+                            pkgs={
+                                "gunicorn[gevent]": latest,
+                                "protobuf": latest,
+                                "tenacity": latest,
+                            },
+                            env={"DD_PROFILE_TEST_GEVENT": "1"},
+                        ),
+                        # profiler without gevent
+                        Venv(
+                            pkgs={
+                                "gunicorn": latest,
+                                "protobuf": latest,
+                                "tenacity": latest,
+                            },
                         ),
                     ],
                 ),
