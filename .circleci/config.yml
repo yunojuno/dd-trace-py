@@ -498,7 +498,7 @@ jobs:
 
   profile:
     <<: *contrib_job
-    parallelism: 7
+    parallelism: 15
     resource_class: large
     steps:
       - run_test:
