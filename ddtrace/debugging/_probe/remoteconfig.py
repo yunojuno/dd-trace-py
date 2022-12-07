@@ -12,8 +12,10 @@ from ddtrace.debugging._config import config
 from ddtrace.debugging._expressions import dd_compile
 from ddtrace.debugging._probe.model import FunctionProbe
 from ddtrace.debugging._probe.model import LineProbe
+from ddtrace.debugging._probe.model import LogLineProbe
 from ddtrace.debugging._probe.model import MetricProbe
 from ddtrace.debugging._probe.model import Probe
+from ddtrace.debugging._probe.model import TemplateSegment
 from ddtrace.internal.logger import get_logger
 from ddtrace.internal.remoteconfig.client import ConfigMetadata
 from ddtrace.internal.utils.cache import LFUCache
@@ -62,6 +64,16 @@ def _compile_expression(when):
         log.error("Cannot compile expression: %s", expr, exc_info=True)
 
     return compiled
+
+
+def _compile_segment(segment):
+    if segment.get("str", ""):
+        return TemplateSegment(str=segment["str"])
+    elif segment.get("parsedExpr", None) is not None:
+        return TemplateSegment(expr=segment["expr"], parsed_expr=_compile_expression(segment["parsedExpr"]))
+
+    # what type of error we should show here?
+    return None
 
 
 def _match_env_and_version(probe):
@@ -119,11 +131,23 @@ def probe(_id, _type, attribs):
             value=_compile_expression(attribs.get("value")),
         )
 
+    elif _type == "logProbes":
+        return LogLineProbe(
+            probe_id=_id,
+            active=attribs["active"],
+            tags=dict(_.split(":", 1) for _ in attribs.get("tags", [])),
+            source_file=attribs["where"]["sourceFile"],
+            line=int(attribs["where"]["lines"][0]),
+            template=attribs["template"],
+            segments=[_compile_segment(segment) for segment in attribs.get("segments", [])],
+        )
+
     raise ValueError("Unknown probe type: %s" % _type)
 
 
 _SNAPSHOT_PREFIX = "snapshotProbe_"
 _METRIC_PREFIX = "metricProbe_"
+_LOG_PREFIX = "logProbe_"
 _CONFIG_REGEX = re.compile(r"^[\da-f]{8}-([\da-f]{4}-){3}[\da-f]{12}$", re.IGNORECASE)
 
 
@@ -141,10 +165,14 @@ def get_probes(config_id, config):
     if config_id.startswith(_METRIC_PREFIX):
         return chain(_make_probes([config], "metricProbes"))
 
+    if config_id.startswith(_LOG_PREFIX):
+        return chain(_make_probes([config], "logProbes"))
+
     if _CONFIG_REGEX.match(config_id):
         return chain(
-            _make_probes(config.get("snapshotProbes") or [], "snapshotProbes"),
-            _make_probes(config.get("metricProbes") or [], "metricProbes"),
+            _make_probes(config.get("snapshotProbes", []), "snapshotProbes"),
+            _make_probes(config.get("metricProbes", []), "metricProbes"),
+            _make_probes(config.get("logProbes", []), "logProbes"),
         )
 
     raise ValueError("Unsupported config id: %s" % config_id)

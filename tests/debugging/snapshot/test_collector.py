@@ -9,9 +9,9 @@ import attr
 import mock
 import pytest
 
+from ddtrace.debugging._capture.collector import SnapshotCollector
+from ddtrace.debugging._capture.model import Snapshot
 from ddtrace.debugging._probe.model import LineProbe
-from ddtrace.debugging._snapshot.collector import SnapshotCollector
-from ddtrace.debugging._snapshot.model import Snapshot
 
 
 class MockLimiter:
@@ -49,13 +49,13 @@ def test_collector_cond():
     encoder, _ = mock_encoder()
 
     collector = SnapshotCollector(encoder=encoder)
-    collector.push(
+    collector.pushSnapshot(
         MockProbe(uuid4(), lambda _: _["a"] is not None),
         MockFrame(dict(a=42)),
         MockThread(-1, "MainThread"),
         (Exception, Exception("foo"), None),
     )
-    collector.push(
+    collector.pushSnapshot(
         MockProbe(uuid4(), lambda _: _["b"] is not None),
         MockFrame(dict(b=None)),
         MockThread(-2, "WorkerThread"),
@@ -129,7 +129,7 @@ def test_collector_push_enqueue():
 
     collector = SnapshotCollector(encoder=encoder)
     for _ in range(10):
-        collector.push(
+        collector.pushSnapshot(
             MockProbe(uuid4(), None),
             inspect.currentframe(),
             threading.current_thread(),

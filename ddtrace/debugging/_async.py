@@ -2,7 +2,7 @@ import sys
 from types import CoroutineType
 from typing import List
 
-from ddtrace.debugging._snapshot.collector import SnapshotContext
+from ddtrace.debugging._capture.collector import SnapshotContext
 from ddtrace.internal import compat
 
 

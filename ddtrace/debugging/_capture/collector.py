@@ -9,11 +9,13 @@ from typing import Tuple
 from typing import cast
 
 from ddtrace.context import Context
+from ddtrace.debugging._capture.model import ConditionEvaluationError
+from ddtrace.debugging._capture.model import LogMessage
+from ddtrace.debugging._capture.model import Snapshot
 from ddtrace.debugging._encoding import BufferedEncoder
 from ddtrace.debugging._metrics import metrics
 from ddtrace.debugging._probe.model import ConditionalProbe
-from ddtrace.debugging._snapshot.model import ConditionEvaluationError
-from ddtrace.debugging._snapshot.model import Snapshot
+from ddtrace.debugging._probe.model import TemplateSegment
 from ddtrace.internal._encoding import BufferFull
 from ddtrace.internal.compat import ExcInfoType
 from ddtrace.internal.logger import get_logger
@@ -88,6 +90,7 @@ class SnapshotContext(object):
     def __exit__(self, *exc_info):
         # type: (ExcInfoType) -> None
         try:
+            # BUG: I think @duration, @return are not passed to condition
             if not self.snapshot.evaluate(dict(self.args)):
                 return
         except ConditionEvaluationError:
@@ -132,16 +135,38 @@ class SnapshotCollector(object):
         self._encoder = encoder
 
     def _enqueue(self, snapshot):
-        # type: (Snapshot) -> None
+        # type: (Any) -> None
         try:
             self._encoder.put(snapshot)
         except BufferFull:
             log.debug("Encoder buffer full")
             meter.increment("encoder.buffer.full")
 
-    def push(self, probe, frame, thread, exc_info, context=None):
-        # type: (ConditionalProbe, FrameType, Thread, ExcInfoType, Optional[Context]) -> None
+    def pushLog(self, probe, frame, segments, thread, context=None):
+        # type: (ConditionalProbe, FrameType, List[TemplateSegment], Thread, Optional[Context]) -> None
         """Push hook data to the collector."""
+        log_msg = LogMessage(
+            probe=probe,
+            frame=frame,
+            thread=thread,
+            context=context,
+            segments=segments,
+            timestamp=time.time(),
+        )
+        try:
+            if log_msg.evaluate():
+                self._enqueue(log_msg)
+                meter.increment("encoded", tags={"probe_id": probe.probe_id})
+                log.debug("Encoded %r", log_msg)
+            else:
+                meter.increment("skip", tags={"cause": "cond", "probe_id": log_msg.probe.probe_id})
+        except ConditionEvaluationError:
+            log.error("Failed to evaluate log message for probe %s", log_msg.probe.probe_id, exc_info=True)
+            meter.increment("skip", tags={"cause": "cond_exc", "probe_id": log_msg.probe.probe_id})
+
+    def pushSnapshot(self, probe, frame, thread, exc_info, context=None):
+        # type: (ConditionalProbe, FrameType, Thread, ExcInfoType, Optional[Context]) -> None
+        """Push hook log data to the collector."""
         snapshot = Snapshot(
             probe=probe,
             frame=frame,

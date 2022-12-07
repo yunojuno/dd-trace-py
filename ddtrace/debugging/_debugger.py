@@ -19,8 +19,12 @@ from typing import cast
 from six import PY3
 
 import ddtrace
+from ddtrace.debugging._capture.collector import SnapshotCollector
+from ddtrace.debugging._capture.model import LogMessage
+from ddtrace.debugging._capture.model import Snapshot
 from ddtrace.debugging._config import config
 from ddtrace.debugging._encoding import BatchJsonEncoder
+from ddtrace.debugging._encoding import LogMessageJsonEncoder
 from ddtrace.debugging._encoding import SnapshotJsonEncoder
 from ddtrace.debugging._function.discovery import FunctionDiscovery
 from ddtrace.debugging._function.store import FullyNamedWrappedFunction
@@ -29,6 +33,7 @@ from ddtrace.debugging._metrics import metrics
 from ddtrace.debugging._probe.model import ConditionalProbe
 from ddtrace.debugging._probe.model import FunctionProbe
 from ddtrace.debugging._probe.model import LineProbe
+from ddtrace.debugging._probe.model import LogLineProbe
 from ddtrace.debugging._probe.model import MetricProbe
 from ddtrace.debugging._probe.model import MetricProbeKind
 from ddtrace.debugging._probe.model import Probe
@@ -37,8 +42,6 @@ from ddtrace.debugging._probe.remoteconfig import ProbePollerEvent
 from ddtrace.debugging._probe.remoteconfig import ProbePollerEventType
 from ddtrace.debugging._probe.remoteconfig import ProbeRCAdapter
 from ddtrace.debugging._probe.status import ProbeStatusLogger
-from ddtrace.debugging._snapshot.collector import SnapshotCollector
-from ddtrace.debugging._snapshot.model import Snapshot
 from ddtrace.debugging._uploader import LogsIntakeUploaderV1
 from ddtrace.internal import atexit
 from ddtrace.internal import compat
@@ -209,6 +212,7 @@ class Debugger(Service):
         self._encoder = BatchJsonEncoder(
             item_encoders={
                 Snapshot: SnapshotJsonEncoder(service_name),
+                LogMessage: LogMessageJsonEncoder(service_name),
                 str: str,
             },
             on_full=self.on_encoder_buffer_full,
@@ -270,11 +274,21 @@ class Debugger(Service):
 
                 return
 
+            if isinstance(probe, LogLineProbe):
+                self._collector.pushLog(
+                    cast(ConditionalProbe, probe),
+                    cast(FrameType, currentframe().f_back),  # type: ignore[union-attr]
+                    probe.segments or [],
+                    threading.current_thread(),
+                    self._tracer.current_trace_context(),
+                )
+                return
+
             # TODO: Global limit evaluated before probe conditions
             if self._global_rate_limiter.limit() is RateLimitExceeded:
                 return
 
-            self._collector.push(
+            self._collector.pushSnapshot(
                 cast(ConditionalProbe, probe),
                 # skip the current frame
                 cast(FrameType, currentframe().f_back),  # type: ignore[union-attr]

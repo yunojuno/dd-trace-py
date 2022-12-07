@@ -11,9 +11,9 @@ from debugger import ModuleCollector
 from debugger import config
 from debugger import status
 
+from ddtrace.debugging._capture.model import Snapshot
 from ddtrace.debugging._function.discovery import FunctionDiscovery
 from ddtrace.debugging._probe.model import LineProbe
-from ddtrace.debugging._snapshot.model import Snapshot
 from ddtrace.internal.module import origin
 
 

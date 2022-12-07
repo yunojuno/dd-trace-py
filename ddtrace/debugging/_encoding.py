@@ -5,7 +5,7 @@ from itertools import islice
 import json
 import os
 import sys
-from time import time
+from threading import Thread
 from types import FrameType
 from typing import Any
 from typing import Callable
@@ -18,14 +18,14 @@ from typing import Tuple
 from typing import Type
 from typing import Union
 from typing import cast
-from uuid import uuid4
 
 import six
 
+from ddtrace.debugging._capture.model import LogMessage
+from ddtrace.debugging._capture.model import Snapshot
 from ddtrace.debugging._config import config
 from ddtrace.debugging._probe.model import FunctionProbe
 from ddtrace.debugging._probe.model import LineProbe
-from ddtrace.debugging._snapshot.model import Snapshot
 from ddtrace.internal import forksafe
 from ddtrace.internal._encoding import BufferFull
 from ddtrace.internal.compat import BUILTIN_CONTAINER_TYPES
@@ -394,7 +394,6 @@ _EMPTY_CAPTURED_CONTEXT = _captured_context([], [], (None, None, None), 0)
 
 def _snapshot_v2(snapshot):
     # type (Snapshot) -> Dict[str, Any]
-    now = time()
     frame = snapshot.frame
     args = list(_get_args(frame))
     _locals = list(_get_locals(frame))  # frame.f_locals.items()
@@ -418,8 +417,8 @@ def _snapshot_v2(snapshot):
             "method": probe.func_qname,
         }
     return {
-        "id": str(uuid4()),
-        "timestamp": int(now * 1e3),  # milliseconds
+        "id": snapshot.snapshot_id,
+        "timestamp": int(snapshot.timestamp * 1e3),  # milliseconds
         "duration": snapshot.duration,  # nanoseconds
         "stack": _unwind_stack(frame),
         "captures": captures,
@@ -431,10 +430,10 @@ def _snapshot_v2(snapshot):
     }
 
 
-def _logger_v2(snapshot):
-    # type: (Snapshot) -> Dict[str, Any]
-    thread = snapshot.thread
-    code = snapshot.frame.f_code
+def _logger_v2(thread, frame):
+    # type: (Thread, FrameType) -> Dict[str, Any]
+    thread = thread
+    code = frame.f_code
 
     return {
         "name": code.co_filename,
@@ -506,11 +505,57 @@ def logs_track_upload_request_v2(
         "service": service,
         "debugger.snapshot": snapshot_data,
         "host": host,
-        "logger": _logger_v2(snapshot),
+        "logger": _logger_v2(snapshot.thread, snapshot.frame),
         "dd.trace_id": context.trace_id if context else None,
         "dd.span_id": context.span_id if context else None,
         "ddsource": "dd_debugger",
         "message": message,
+        "timestamp": snapshot_data["timestamp"],
+    }
+    add_tags(payload)
+
+    return payload
+
+
+def log_track_upload_log_v2(
+    service,  # type: str
+    log_msg,  # type: LogMessage
+    host,  # type: Optional[str]
+):
+    probe = log_msg.probe
+    if isinstance(probe, LineProbe):
+        location = {
+            "file": probe.source_file,
+            "lines": [probe.line],
+        }
+    elif isinstance(probe, FunctionProbe):
+        location = {
+            "type": probe.module,
+            "method": probe.func_qname,
+        }
+
+    snapshot_data = {
+        "id": log_msg.snapshot_id,
+        "probe": {
+            "id": probe.probe_id,
+            "location": location,
+        },
+        "evaluationErrors": [{"expr": e.expr, "message": e.message} for e in log_msg.errors],
+        "timestamp": int(log_msg.timestamp * 1e3),  # milliseconds
+        "language": "python",
+    }
+
+    context = log_msg.context
+    payload = {
+        "service": service,
+        "debugger.snapshot": snapshot_data,
+        "host": host,
+        "logger": _logger_v2(log_msg.thread, log_msg.frame),
+        "dd.trace_id": context.trace_id if context else None,
+        "dd.span_id": context.span_id if context else None,
+        "ddsource": "dd_debugger",
+        "message": log_msg.message,
+        "timestamp": snapshot_data["timestamp"],
     }
     add_tags(payload)
 
@@ -543,6 +588,23 @@ class SnapshotJsonEncoder(SnapshotEncoder):
     ):
         # type: (...) -> Dict[str, Any]
         return _captured_context(arguments, _locals, throwable, level)
+
+
+class LogMessageJsonEncoder(Encoder):
+    def __init__(self, service, host=None):
+        # type: (str, Optional[str]) -> None
+        self._service = service
+        self._host = host
+
+    def encode(self, log_msg):
+        # type: (LogMessage) -> bytes
+        return json.dumps(
+            log_track_upload_log_v2(
+                service=self._service,
+                log_msg=log_msg,
+                host=self._host,
+            )
+        ).encode("utf-8")
 
 
 class BatchJsonEncoder(BufferedEncoder):

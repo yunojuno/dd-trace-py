@@ -8,6 +8,9 @@ import typing as t
 from _config import config
 
 from ddtrace.context import Context
+from ddtrace.debugging._capture.collector import SnapshotCollector
+from ddtrace.debugging._capture.collector import SnapshotContext
+from ddtrace.debugging._capture.model import Snapshot
 from ddtrace.debugging._config import config as debugger_config
 import ddtrace.debugging._debugger as _debugger
 from ddtrace.debugging._debugger import Debugger
@@ -17,9 +20,6 @@ from ddtrace.debugging._function.discovery import FunctionDiscovery
 from ddtrace.debugging._probe.model import ConditionalProbe
 from ddtrace.debugging._probe.model import Probe
 from ddtrace.debugging._probe.remoteconfig import ProbePollerEvent
-from ddtrace.debugging._snapshot.collector import SnapshotCollector
-from ddtrace.debugging._snapshot.collector import SnapshotContext
-from ddtrace.debugging._snapshot.model import Snapshot
 from ddtrace.internal.compat import ExcInfoType
 from ddtrace.internal.compat import PY3
 from ddtrace.internal.module import origin
