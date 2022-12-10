@@ -1,25 +1,16 @@
-from threading import Thread
-import time
-from types import FrameType
 from typing import Any
 from typing import Callable
 from typing import List
 from typing import Optional
 from typing import Tuple
-from typing import cast
 
-from ddtrace.context import Context
-from ddtrace.debugging._capture.model import ConditionEvaluationError
-from ddtrace.debugging._capture.model import LogMessage
-from ddtrace.debugging._capture.model import Snapshot
+from ddtrace.debugging._capture.model import CaptureState
+from ddtrace.debugging._capture.model import CapturedEvent
 from ddtrace.debugging._encoding import BufferedEncoder
 from ddtrace.debugging._metrics import metrics
-from ddtrace.debugging._probe.model import ConditionalProbe
-from ddtrace.debugging._probe.model import TemplateSegment
 from ddtrace.internal._encoding import BufferFull
 from ddtrace.internal.compat import ExcInfoType
 from ddtrace.internal.logger import get_logger
-from ddtrace.internal.rate_limiter import RateLimitExceeded
 
 
 CaptorType = Callable[[List[Tuple[str, Any]], List[Tuple[str, Any]], ExcInfoType, int], Any]
@@ -31,7 +22,7 @@ meter = metrics.get_meter("snapshot.collector")
 NO_RETURN_VALUE = object()
 
 
-class SnapshotContext(object):
+class CapturedEventWithContext(object):
     """Snapshot context manager.
 
     This is used to capture snapshot data for function invocation, whose return
@@ -40,37 +31,16 @@ class SnapshotContext(object):
 
     def __init__(
         self,
-        collector,  # type: SnapshotCollector
-        probe,  # type: ConditionalProbe
-        frame,  # type: FrameType
-        thread,  # type: Thread
-        args,  # type: List[Tuple[str, Any]]
-        context,  # type: Optional[Context]
+        collector,  # type: CapturedEventCollector
+        event,  # type: CapturedEvent
     ):
         # type: (...) -> None
         self.collector = collector
-        self.args = args
-        self.return_value = NO_RETURN_VALUE
-        self.duration = None
-        self._snapshot_encoder = collector._encoder._encoders[Snapshot]  # type: ignore[attr-defined]
+        self.event = event
+        self.return_value = NO_RETURN_VALUE  # type: Any
+        self.duration = None  # type: Optional[int]
 
-        snapshot = Snapshot(
-            probe=probe,
-            frame=frame,
-            thread=thread,
-            exc_info=(None, None, None),
-            context=context,
-            timestamp=time.time(),
-        )
-
-        snapshot.entry_capture = self._snapshot_encoder.capture_context(
-            args,
-            [],
-            (None, None, None),
-            level=1,  # TODO: Retrieve from probe
-        )
-
-        self.snapshot = snapshot
+        self.event.enter()
 
     def exit(self, retval, exc_info, duration_ns):
         # type: (Any, ExcInfoType, int) -> None
@@ -89,44 +59,19 @@ class SnapshotContext(object):
 
     def __exit__(self, *exc_info):
         # type: (ExcInfoType) -> None
-        try:
-            # BUG: I think @duration, @return are not passed to condition
-            if not self.snapshot.evaluate(dict(self.args)):
-                return
-        except ConditionEvaluationError:
-            probe_id = cast(Snapshot, self.snapshot).probe.probe_id
-            log.error("Failed to evaluate condition for probe %s", probe_id, exc_info=True)
-            meter.increment("skip", tags={"cause": "cond_exc", "probe_id": probe_id})
-            return
-
-        # If we get here it is because we're within the rate limits and the
-        # probe condition evaluated to True.
-        args = self.args
-        _locals = (
-            [("@return", self.return_value)] if self.return_value is not NO_RETURN_VALUE and exc_info[1] is None else []
-        )  # type: List[Tuple[str, Any]]
-
-        self.snapshot.return_capture = self._snapshot_encoder.capture_context(
-            args,
-            _locals,
-            exc_info,
-            level=1,  # TODO: Retrieve from probe
-        )
-        self.snapshot.duration = self.duration
-        self.collector._enqueue(self.snapshot)
-        meter.increment("encoded", tags={"probe_id": self.snapshot.probe.probe_id})
-        log.debug("Encoded %r", self.snapshot)
+        self.event.exit(self.return_value, exc_info, self.duration)
+        self.collector.push(self.event)
 
 
-class SnapshotCollector(object):
-    """Snapshot collector.
+class CapturedEventCollector(object):
+    """Captured Event collector.
 
     This is used to collect and encode snapshot information as soon as
     requested. The ``push`` method is intended to be called in point
-    instrumentation (e.g. line probes), where all the information is already
-    available and ready to be encoded. For function instrumentation (e.g.
-    function probes), we use the ``collect`` method to create a
-    ``SnapshotContext`` instance that can be used to capture additional data,
+    event is over and information is already available and ready to be encoded
+    or event status indicate it should be skipped.
+    For function instrumentation (e.g. function probes), we use the ``attach`` method to create a
+    ``CapturedEventWithContext`` instance that can be used to capture additional data,
     such as the return value of the wrapped function.
     """
 
@@ -142,59 +87,19 @@ class SnapshotCollector(object):
             log.debug("Encoder buffer full")
             meter.increment("encoder.buffer.full")
 
-    def pushLog(self, probe, frame, segments, thread, context=None):
-        # type: (ConditionalProbe, FrameType, List[TemplateSegment], Thread, Optional[Context]) -> None
-        """Push hook data to the collector."""
-        log_msg = LogMessage(
-            probe=probe,
-            frame=frame,
-            thread=thread,
-            context=context,
-            segments=segments,
-            timestamp=time.time(),
-        )
-        try:
-            if log_msg.evaluate():
-                self._enqueue(log_msg)
-                meter.increment("encoded", tags={"probe_id": probe.probe_id})
-                log.debug("Encoded %r", log_msg)
-            else:
-                meter.increment("skip", tags={"cause": "cond", "probe_id": log_msg.probe.probe_id})
-        except ConditionEvaluationError:
-            log.error("Failed to evaluate log message for probe %s", log_msg.probe.probe_id, exc_info=True)
-            meter.increment("skip", tags={"cause": "cond_exc", "probe_id": log_msg.probe.probe_id})
+    def push(self, event):
+        # type: (CapturedEvent) -> None
 
-    def pushSnapshot(self, probe, frame, thread, exc_info, context=None):
-        # type: (ConditionalProbe, FrameType, Thread, ExcInfoType, Optional[Context]) -> None
-        """Push hook log data to the collector."""
-        snapshot = Snapshot(
-            probe=probe,
-            frame=frame,
-            thread=thread,
-            exc_info=exc_info,
-            context=context,
-            timestamp=time.time(),
-        )
-        try:
-            if snapshot.evaluate():
-                # DEV: Ideally we would want to lock the frame.f_locals *data*
-                # while we are encoding, to avoid shared object from being
-                # modified in other threads. One option is to acquire and hold
-                # the GIL until we are done snapshotting, but this is not
-                # possible from Python.
-                if probe.limiter.limit() is RateLimitExceeded:
-                    return
+        if event.state == CaptureState.SKIP_COND:
+            meter.increment("skip", tags={"cause": "cond", "probe_id": event.probe.probe_id})
+        elif event.state == CaptureState.SKIP_COND_ERROR:
+            meter.increment("skip", tags={"cause": "cond_exc", "probe_id": event.probe.probe_id})
+        elif event.state == CaptureState.SKIP_RATE:
+            meter.increment("skip", tags={"cause": "rate", "probe_id": event.probe.probe_id})
+        elif event.state == CaptureState.COMMIT:
+            self._enqueue(event)
 
-                self._enqueue(snapshot)
-                meter.increment("encoded", tags={"probe_id": probe.probe_id})
-                log.debug("Encoded %r", snapshot)
-            else:
-                meter.increment("skip", tags={"cause": "cond", "probe_id": snapshot.probe.probe_id})
-        except ConditionEvaluationError:
-            log.error("Failed to evaluate condition for probe %s", snapshot.probe.probe_id, exc_info=True)
-            meter.increment("skip", tags={"cause": "cond_exc", "probe_id": snapshot.probe.probe_id})
-
-    def collect(self, probe, frame, thread, args, context=None):
-        # type: (ConditionalProbe, FrameType, Thread, List[Tuple[str, Any]], Optional[Context]) -> SnapshotContext
+    def attach(self, event):
+        # type: (CapturedEvent) -> CapturedEventWithContext
         """Collect via a snapshot context."""
-        return SnapshotContext(self, probe, frame, thread, args, context)
+        return CapturedEventWithContext(self, event)

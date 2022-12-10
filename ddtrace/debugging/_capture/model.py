@@ -1,3 +1,4 @@
+import abc
 from threading import Thread
 import time
 from types import FrameType
@@ -5,23 +6,16 @@ from typing import Any
 from typing import Dict
 from typing import List
 from typing import Optional
-from typing import cast
+from typing import Tuple
 from uuid import uuid4
 
 import attr
+import six
 
 from ddtrace.context import Context
+from ddtrace.debugging._capture import safe_getter
 from ddtrace.debugging._probe.model import ConditionalProbe
-from ddtrace.debugging._probe.model import TemplateSegment
-from ddtrace.internal.compat import ExcInfoType
-from ddtrace.internal.logger import get_logger
-
-
-log = get_logger(__name__)
-
-
-class ConditionEvaluationError(Exception):
-    """Thrown when an error occurs while evaluating a probe condition."""
+from ddtrace.debugging._probe.model import ExpressionEvaluationError
 
 
 @attr.s
@@ -30,25 +24,34 @@ class EvaluationError(object):
     message = attr.ib(type=str)
 
 
-@attr.s
-class Snapshot(object):
-    """Raw snapshot.
+# TODO: make this an Enum once Python 2 support is dropped.
+class CaptureState(object):
+    NONE = "NONE"
+    SKIP_COND = "SKIP_COND"
+    SKIP_COND_ERROR = "SKIP_COND_ERROR"
+    SKIP_RATE = "SKIP_RATE"
+    COMMIT = "COMMIT"
 
-    Used to collect the minimum amount of information from a firing probe.
+
+@attr.s
+class CapturedEvent(six.with_metaclass(abc.ABCMeta)):
+    """Capture Event baseclass.
+
+    Used to store collected when a probe is triggered.
     """
 
-    probe = attr.ib(type=ConditionalProbe)
-    frame = attr.ib(type=FrameType)
+    probe = attr.ib(type=ConditionalProbe)  # type: ConditionalProbe
+    frame = attr.ib(type=FrameType)  # type: FrameType
     thread = attr.ib(type=Thread)
-    exc_info = attr.ib(type=ExcInfoType)
-    context = attr.ib(type=Optional[Context])
-    entry_capture = attr.ib(type=Optional[dict], default=None)
-    return_capture = attr.ib(type=Optional[dict], default=None)
-    duration = attr.ib(type=Optional[int], default=None)  # nanoseconds
-    timestamp = attr.ib(type=float, factory=time.time)
-    snapshot_id = attr.ib(type=str, init=False, factory=lambda: str(uuid4()))
 
-    def evaluate(self, _locals=None):
+    context = attr.ib(type=Optional[Context], default=None)
+    args = attr.ib(type=Optional[List[Tuple[str, Any]]], default=None)
+    state = attr.ib(type=str, default=CaptureState.NONE)
+    errors = attr.ib(type=List[EvaluationError], factory=lambda: list())
+    timestamp = attr.ib(type=float, factory=time.time)
+    event_id = attr.ib(type=str, init=False, factory=lambda: str(uuid4()))
+
+    def _evalCondition(self, _locals=None):
         # type: (Optional[Dict[str, Any]]) -> bool
         """Evaluate the probe condition against the collected frame."""
         condition = self.probe.condition
@@ -56,54 +59,31 @@ class Snapshot(object):
             return True
 
         try:
-            return bool(condition(_locals or self.frame.f_locals))
-        except Exception as e:
-            raise ConditionEvaluationError(e)
+            if bool(condition.eval(_locals or self.frame.f_locals)):
+                return True
+        except ExpressionEvaluationError as e:
+            self.errors.append(EvaluationError(expr=e.dsl, message=e.error))
+            self.state = CaptureState.SKIP_COND_ERROR
+        else:
+            self.state = CaptureState.SKIP_COND
 
+        return False
 
-@attr.s
-class LogMessage(object):
-    """Raw dynamic log message.
+    def _enrich_args(self, retval, exc_info, duration):
+        _locals = list(self.args or safe_getter.get_args(self.frame))
+        _locals.append(("@duration", duration))
+        if exc_info[1] is None:
+            _locals.append(("@return", retval))
+        return dict(_locals)
 
-    Used to collect the minimum amount of information from a firing probe.
-    """
+    @abc.abstractmethod
+    def enter(self):
+        pass
 
-    probe = attr.ib(type=ConditionalProbe)
-    frame = attr.ib(type=FrameType)
-    thread = attr.ib(type=Thread)
-    context = attr.ib(type=Optional[Context])
-    segments = attr.ib(type=List[TemplateSegment])
-    message = attr.ib(type=Optional[str], default=None)
-    timestamp = attr.ib(type=float, factory=time.time)
-    errors = attr.ib(type=List[EvaluationError], factory=lambda: list())
-    snapshot_id = attr.ib(type=str, init=False, factory=lambda: str(uuid4()))
+    @abc.abstractmethod
+    def exit(self, retval, exc_info, duration):
+        pass
 
-    def _eval_segment(self, segment, _locals):
-        # type: (TemplateSegment, Dict[str, Any]) -> str
-
-        if segment.str_value is not None:
-            return segment.str_value
-        elif segment.parsed_expr is not None:
-            try:
-                return str(segment.parsed_expr(_locals))
-            except Exception as e:
-                self.errors.append(EvaluationError(expr=cast(str, segment.expr), message=str(e)))
-                return "ERROR"
-
-        return ""
-
-    def evaluate(self, _locals=None):
-        # type: (Optional[Dict[str, Any]]) -> bool
-        """Evaluate the probe condition against the collected frame."""
-
-        condition = self.probe.condition
-        if condition is not None:
-            try:
-                if not bool(condition(_locals or self.frame.f_locals)):
-                    return False
-            except Exception as e:
-                raise ConditionEvaluationError(e)
-
-        self.message = "".join([self._eval_segment(s, _locals or self.frame.f_locals) for s in self.segments])
-
-        return True
+    @abc.abstractmethod
+    def line(self, _locals=None, exc_info=(None, None, None)):
+        pass

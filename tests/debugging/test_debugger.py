@@ -8,12 +8,14 @@ from mock.mock import call
 import pytest
 
 from ddtrace.debugging._expressions import dd_compile
+from ddtrace.debugging._probe.model import ConstTemplateSegment
+from ddtrace.debugging._probe.model import DslExpression
+from ddtrace.debugging._probe.model import ExpressionTemplateSegment
 from ddtrace.debugging._probe.model import FunctionProbe
 from ddtrace.debugging._probe.model import LineProbe
 from ddtrace.debugging._probe.model import LogLineProbe
-from ddtrace.debugging._probe.model import MetricProbe
+from ddtrace.debugging._probe.model import MetricLineProbe
 from ddtrace.debugging._probe.model import MetricProbeKind
-from ddtrace.debugging._probe.model import TemplateSegment
 from ddtrace.debugging._probe.registry import _get_probe_location
 from ddtrace.internal.remoteconfig import RemoteConfig
 from ddtrace.internal.utils.inspection import linenos
@@ -305,7 +307,7 @@ def test_debugger_conditional_line_probe_on_instance_method():
             probe_id="probe-instance-method",
             source_file="tests/submod/stuff.py",
             line=36,
-            condition=dd_compile(True),
+            condition=DslExpression(dsl="True", callable=dd_compile(True)),
         ),
         lambda: getattr(Stuff(), "instancestuff")(),
     )
@@ -484,7 +486,7 @@ def mock_metrics():
 
 
 def create_line_metric_probe(kind, value=None):
-    return MetricProbe(
+    return MetricLineProbe(
         probe_id="metric-probe-test",
         source_file="tests/submod/stuff.py",
         line=36,
@@ -742,7 +744,7 @@ def test_debugger_condition_eval_then_rate_limit():
                 probe_id="foo",
                 source_file="tests/submod/stuff.py",
                 line=36,
-                condition=dd_compile({"eq": ["#bar", 42]}),
+                condition=DslExpression(dsl="#bar == 42", callable=dd_compile({"eq": ["#bar", 42]})),
             ),
         )
 
@@ -774,7 +776,7 @@ def test_debugger_function_probe_eval_on_exit():
                 probe_id="duration-probe",
                 module="tests.submod.stuff",
                 func_qname="mutator",
-                condition=dd_compile({"contains": ["#arg", 42]}),
+                condition=DslExpression(dsl="contains(#arg,42)", callable=dd_compile({"contains": ["#arg", 42]})),
             )
         )
 
@@ -823,13 +825,12 @@ def test_debugger_log_live_probe_generate_messages():
                 line=36,
                 template="hello world {^foo} {#bar}!",
                 segments=[
-                    TemplateSegment(str_value="hello world "),
-                    TemplateSegment(expr="^foo", parsed_expr=dd_compile("^foo")),
-                    TemplateSegment(str_value=" "),
-                    TemplateSegment(expr="#bar", parsed_expr=dd_compile("#bar")),
-                    TemplateSegment(str_value="!"),
+                    ConstTemplateSegment("hello world "),
+                    ExpressionTemplateSegment(DslExpression(dsl="^foo", callable=dd_compile("^foo"))),
+                    ConstTemplateSegment(" "),
+                    ExpressionTemplateSegment(DslExpression(dsl="#bar", callable=dd_compile("#bar"))),
+                    ConstTemplateSegment("!"),
                 ],
-                # condition=dd_compile({"eq": ["#bar", 42]}),
             ),
         )
 

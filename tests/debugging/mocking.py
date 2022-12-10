@@ -3,7 +3,7 @@ from contextlib import contextmanager
 import json
 from typing import Any
 
-from ddtrace.debugging._capture.collector import SnapshotCollector
+from ddtrace.debugging._capture.collector import CapturedEventCollector
 from ddtrace.debugging._config import config
 from ddtrace.debugging._debugger import Debugger
 from ddtrace.debugging._probe.model import Probe
@@ -52,7 +52,7 @@ class MockProbeStatusLogger(DummyProbeStatusLogger):
         self.queue = []
 
 
-class TestSnapshotCollector(SnapshotCollector):
+class TestSnapshotCollector(CapturedEventCollector):
     def __init__(self, *args, **kwargs):
         # type: (*Any, **Any) -> None
         super(TestSnapshotCollector, self).__init__(*args, **kwargs)

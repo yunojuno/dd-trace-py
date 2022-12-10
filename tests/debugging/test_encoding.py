@@ -7,18 +7,14 @@ import threading
 
 import pytest
 
-from ddtrace.debugging._capture.model import Snapshot
+from ddtrace.debugging._capture import safe_getter
+from ddtrace.debugging._capture.snapshot import Snapshot
 from ddtrace.debugging._encoding import BatchJsonEncoder
 from ddtrace.debugging._encoding import MAXSIZE
 from ddtrace.debugging._encoding import SnapshotJsonEncoder
 from ddtrace.debugging._encoding import _captured_context
-from ddtrace.debugging._encoding import _captured_value_v2
-from ddtrace.debugging._encoding import _get_args
-from ddtrace.debugging._encoding import _get_fields
-from ddtrace.debugging._encoding import _get_locals
-from ddtrace.debugging._encoding import _serialize
-from ddtrace.debugging._encoding import _serialize_exc_info
 from ddtrace.debugging._encoding import format_message
+from ddtrace.debugging._probe.model import CaptureLimits
 from ddtrace.debugging._probe.model import LineProbe
 from ddtrace.internal._encoding import BufferFull
 from ddtrace.internal.compat import PY2
@@ -54,10 +50,10 @@ tree = Tree("root", Node("0", Node("0l", Node("0ll"), Node("0lr")), Node("0r", N
 
 def test_get_args():
     def assert_args(args):
-        assert set(dict(_get_args(inspect.currentframe().f_back)).keys()) == args
+        assert set(dict(safe_getter.get_args(inspect.currentframe().f_back)).keys()) == args
 
     def assert_locals(_locals):
-        assert set(dict(_get_locals(inspect.currentframe().f_back)).keys()) == _locals
+        assert set(dict(safe_getter.get_locals(inspect.currentframe().f_back)).keys()) == _locals
 
     def arg_and_kwargs(a, **kwargs):
         assert_args({"a", "kwargs"})
@@ -111,24 +107,27 @@ def test_get_args():
     ],
 )
 def test_serialize(value, serialized):
-    assert _serialize(value, level=-1) == serialized
+    assert safe_getter.serialize(value, level=-1) == serialized
 
 
 def test_serialize_custom_object():
 
-    assert _serialize(Custom(), level=-1) == (
+    assert safe_getter.serialize(Custom(), level=-1) == (
         "Custom(some_arg=({'Hello': [None, 42, True, None, {b'World'}, 0.07]}))"
         if PY3
         else "Custom(some_arg=({'Hello': [None, 42, True, None, {'World'}, 0.07]}))"
     )
 
     q = "class" if PY3 else "type"
-    assert _serialize(Custom(), 1) == "Custom(some_arg=<%s 'tuple'>)" % q
-    assert _serialize(Custom(), 2) == "Custom(some_arg=(<%s 'dict'>))" % q
-    assert _serialize(Custom(), 3) == "Custom(some_arg=({'Hello': <%s 'list'>}))" % q
-    assert _serialize(Custom(), 4) == "Custom(some_arg=({'Hello': [None, 42, True, None, <%s 'set'>, 0.07]}))" % q
+    assert safe_getter.serialize(Custom(), 1) == "Custom(some_arg=<%s 'tuple'>)" % q
+    assert safe_getter.serialize(Custom(), 2) == "Custom(some_arg=(<%s 'dict'>))" % q
+    assert safe_getter.serialize(Custom(), 3) == "Custom(some_arg=({'Hello': <%s 'list'>}))" % q
+    assert (
+        safe_getter.serialize(Custom(), 4)
+        == "Custom(some_arg=({'Hello': [None, 42, True, None, <%s 'set'>, 0.07]}))" % q
+    )
 
-    assert _serialize(Custom) == repr(Custom)
+    assert safe_getter.serialize(Custom) == repr(Custom)
 
 
 @pytest.mark.parametrize(
@@ -143,14 +142,14 @@ def test_serialize_custom_object():
     ],
 )
 def test_serialize_collection_max_size(value, serialized):
-    assert _serialize(value) == serialized
+    assert safe_getter.serialize(value) == serialized
 
 
 def test_serialize_long_string():
-    assert _serialize("x" * 11, maxlen=10) == repr("x" * 9 + "...")
+    assert safe_getter.serialize("x" * 11, maxlen=10) == repr("x" * 9 + "...")
 
 
-def test_serialize_exc_info():
+def test_capture_exc_info():
     def a():
         raise ValueError("bad")
 
@@ -164,7 +163,7 @@ def test_serialize_exc_info():
     try:
         c()
     except ValueError:
-        serialized = _serialize_exc_info(sys.exc_info())
+        serialized = safe_getter.capture_exc_info(sys.exc_info())
 
     assert serialized is not None
     assert serialized["type"] == "ValueError"
@@ -173,13 +172,13 @@ def test_serialize_exc_info():
 
 
 def test_captured_context_default_level():
-    context = _captured_context([("self", tree)], [], (None, None, None), level=0)
+    context = _captured_context([("self", tree)], [], (None, None, None), CaptureLimits(max_level=0))
     self = context["arguments"]["self"]
     assert self["fields"]["root"]["notCapturedReason"] == "depth"
 
 
 def test_captured_context_one_level():
-    context = _captured_context([("self", tree)], [], (None, None, None), 1)
+    context = _captured_context([("self", tree)], [], (None, None, None), CaptureLimits(max_level=1))
     self = context["arguments"]["self"]
 
     assert self["fields"]["root"]["fields"]["left"] == {"notCapturedReason": "depth", "type": "Node"}
@@ -189,13 +188,13 @@ def test_captured_context_one_level():
 
 
 def test_captured_context_two_level():
-    context = _captured_context([("self", tree)], [], (None, None, None), 2)
+    context = _captured_context([("self", tree)], [], (None, None, None), CaptureLimits(max_level=2))
     self = context["arguments"]["self"]
     assert self["fields"]["root"]["fields"]["left"]["fields"]["right"] == {"notCapturedReason": "depth", "type": "Node"}
 
 
 def test_captured_context_three_level():
-    context = _captured_context([("self", tree)], [], (None, None, None), 3)
+    context = _captured_context([("self", tree)], [], (None, None, None), CaptureLimits(max_level=3))
     self = context["arguments"]["self"]
     assert self["fields"]["root"]["fields"]["left"]["fields"]["right"]["fields"]["right"]["isNull"], context
     assert self["fields"]["root"]["fields"]["left"]["fields"]["right"]["fields"]["left"]["isNull"], context
@@ -218,11 +217,9 @@ def test_captured_context_exc():
 
 def test_batch_json_encoder():
     s = Snapshot(
-        LineProbe(probe_id="batch-test", source_file="foo.py", line=42),
-        inspect.currentframe(),
-        threading.current_thread(),
-        sys.exc_info(),
-        None,
+        probe=LineProbe(probe_id="batch-test", source_file="foo.py", line=42),
+        frame=inspect.currentframe(),
+        thread=threading.current_thread(),
     )
 
     # DEV: This local variable will appear in the snapshot and we are using it
@@ -231,6 +228,9 @@ def test_batch_json_encoder():
 
     buffer_size = 30 * (1 << 10)
     encoder = BatchJsonEncoder({Snapshot: SnapshotJsonEncoder(None)}, buffer_size=buffer_size)
+
+    s.line()
+
     snapshot_size = encoder.put(s)
 
     n_snapshots = buffer_size // snapshot_size
@@ -244,7 +244,10 @@ def test_batch_json_encoder():
     payload = encoder.encode()
     decoded = json.loads(payload.decode())
     assert len(decoded) == n_snapshots == count
-    assert _serialize(cake) == decoded[0]["debugger.snapshot"]["captures"]["lines"]["42"]["locals"]["cake"]["value"]
+    assert (
+        safe_getter.serialize(cake)
+        == decoded[0]["debugger.snapshot"]["captures"]["lines"]["42"]["locals"]["cake"]["value"]
+    )
     assert encoder.encode() is None
     assert encoder.encode() is None
     assert encoder.count == 0
@@ -252,12 +255,12 @@ def test_batch_json_encoder():
 
 def test_batch_flush_reencode():
     s = Snapshot(
-        LineProbe(probe_id="batch-test", source_file="foo.py", line=42),
-        inspect.currentframe(),
-        threading.current_thread(),
-        sys.exc_info(),
-        None,
+        probe=LineProbe(probe_id="batch-test", source_file="foo.py", line=42),
+        frame=inspect.currentframe(),
+        thread=threading.current_thread(),
     )
+
+    s.line()
 
     encoder = BatchJsonEncoder({Snapshot: SnapshotJsonEncoder(None)})
 
@@ -290,11 +293,11 @@ class SideEffects(object):
 
 
 def test_serialize_side_effects():
-    assert _serialize(SideEffects()) == "SideEffects()"
+    assert safe_getter.serialize(SideEffects()) == "SideEffects()"
 
 
 def test_get_fields_side_effects():
-    assert _get_fields(SideEffects()) == {}
+    assert safe_getter.get_fields(SideEffects()) == {}
 
 
 # ---- Slots ----
@@ -314,8 +317,8 @@ def test_get_fields_slots():
             super(B, self).__init__()
             self.b = "b"
 
-    assert _get_fields(A()) == {"a": "a"}
-    assert _get_fields(B()) == {"a": "a", "b": "b"}
+    assert safe_getter.get_fields(A()) == {"a": "a"}
+    assert safe_getter.get_fields(B()) == {"a": "a", "b": "b"}
 
 
 @pytest.mark.parametrize(
@@ -329,8 +332,11 @@ def test_get_fields_slots():
     ],
 )
 def test_format_message(args, expected):
-    assert format_message("foo", {k: _captured_value_v2(v, level=0) for k, v in args.items()}) == "foo(%s)" % expected
+    assert (
+        format_message("foo", {k: safe_getter.capture_value(v, level=0) for k, v in args.items()})
+        == "foo(%s)" % expected
+    )
 
 
 def test_encoding_none():
-    assert _captured_value_v2(None) == {"isNull": True, "type": "NoneType"}
+    assert safe_getter.capture_value(None) == {"isNull": True, "type": "NoneType"}

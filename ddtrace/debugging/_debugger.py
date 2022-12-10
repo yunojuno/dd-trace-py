@@ -19,9 +19,9 @@ from typing import cast
 from six import PY3
 
 import ddtrace
-from ddtrace.debugging._capture.collector import SnapshotCollector
-from ddtrace.debugging._capture.model import LogMessage
-from ddtrace.debugging._capture.model import Snapshot
+from ddtrace.debugging._capture.collector import CapturedEventCollector
+from ddtrace.debugging._capture.log_message import LogMessage
+from ddtrace.debugging._capture.snapshot import Snapshot
 from ddtrace.debugging._config import config
 from ddtrace.debugging._encoding import BatchJsonEncoder
 from ddtrace.debugging._encoding import LogMessageJsonEncoder
@@ -33,8 +33,9 @@ from ddtrace.debugging._metrics import metrics
 from ddtrace.debugging._probe.model import ConditionalProbe
 from ddtrace.debugging._probe.model import FunctionProbe
 from ddtrace.debugging._probe.model import LineProbe
+from ddtrace.debugging._probe.model import LogFunctionProbe
 from ddtrace.debugging._probe.model import LogLineProbe
-from ddtrace.debugging._probe.model import MetricProbe
+from ddtrace.debugging._probe.model import MetricLineProbe
 from ddtrace.debugging._probe.model import MetricProbeKind
 from ddtrace.debugging._probe.model import Probe
 from ddtrace.debugging._probe.registry import ProbeRegistry
@@ -147,7 +148,7 @@ class Debugger(Service):
 
     __rc_adapter__ = ProbeRCAdapter
     __uploader__ = LogsIntakeUploaderV1
-    __collector__ = SnapshotCollector
+    __collector__ = CapturedEventCollector
     __watchdog__ = DebuggerModuleWatchdog
     __logger__ = ProbeStatusLogger
 
@@ -255,7 +256,7 @@ class Debugger(Service):
             return
 
         try:
-            if isinstance(probe, MetricProbe):
+            if isinstance(probe, MetricLineProbe):
                 # TODO: Handle value expressions
                 assert probe.kind is not None and probe.name is not None
 
@@ -275,27 +276,29 @@ class Debugger(Service):
                 return
 
             if isinstance(probe, LogLineProbe):
-                self._collector.pushLog(
-                    cast(ConditionalProbe, probe),
-                    cast(FrameType, currentframe().f_back),  # type: ignore[union-attr]
-                    probe.segments or [],
-                    threading.current_thread(),
-                    self._tracer.current_trace_context(),
+                logMessage = LogMessage(
+                    probe=cast(ConditionalProbe, probe),
+                    frame=cast(FrameType, currentframe().f_back),  # type: ignore[union-attr]
+                    thread=threading.current_thread(),
+                    context=self._tracer.current_trace_context(),
+                    segments=probe.segments or [],
                 )
+                logMessage.line(exc_info=sys.exc_info())
+                self._collector.push(logMessage)
                 return
 
             # TODO: Global limit evaluated before probe conditions
             if self._global_rate_limiter.limit() is RateLimitExceeded:
                 return
 
-            self._collector.pushSnapshot(
-                cast(ConditionalProbe, probe),
-                # skip the current frame
-                cast(FrameType, currentframe().f_back),  # type: ignore[union-attr]
-                threading.current_thread(),
-                sys.exc_info(),
-                self._tracer.current_trace_context(),
+            snapshot = Snapshot(
+                probe=cast(ConditionalProbe, probe),
+                frame=cast(FrameType, currentframe().f_back),  # type: ignore[union-attr]
+                thread=threading.current_thread(),
+                context=self._tracer.current_trace_context(),
             )
+            snapshot.line(exc_info=sys.exc_info())
+            self._collector.push(snapshot)
 
         except Exception:
             log.error("Failed to execute debugger probe hook", exc_info=True)
@@ -312,32 +315,38 @@ class Debugger(Service):
 
         def _(wrapped, args, kwargs):
             # type: (FunctionType, Tuple[Any], Dict[str,Any]) -> Any
-            if not any(probe.active for probe in wrappers.values()):
+            active_probes = [probe for probe in wrappers.values() if probe.active]
+
+            if not active_probes:
                 return wrapped(*args, **kwargs)
 
             argnames = wrapped.__code__.co_varnames
-            frame = currentframe()
+            actual_frame = currentframe().f_back.f_back  # type: ignore[union-attr]
             allargs = list(chain(zip(argnames, args), kwargs.items()))
-
             thread = threading.current_thread()
-
             trace_context = self._tracer.current_trace_context()
 
             open_contexts = []
-            actual_frame = frame.f_back.f_back  # type: ignore[union-attr]
-            for probe in wrappers.values():
-                if not probe.active or self._global_rate_limiter.limit() is RateLimitExceeded:
-                    continue
-                # TODO: Generate snapshot with placeholder values
-                open_contexts.append(
-                    self._collector.collect(
+            for probe in active_probes:
+                if isinstance(probe, LogFunctionProbe):
+                    logMessage = LogMessage(
+                        probe=probe,
+                        frame=actual_frame,  # type: ignore[arg-type]
+                        thread=thread,
+                        args=allargs,
+                        context=trace_context,
+                        segments=probe.segments or [],
+                    )
+                    open_contexts.append(self._collector.attach(logMessage))
+                else:
+                    snapshot = Snapshot(
                         probe=probe,
                         frame=actual_frame,  # type: ignore[arg-type]
                         thread=thread,
                         args=allargs,
                         context=trace_context,
                     )
-                )
+                    open_contexts.append(self._collector.attach(snapshot))
 
             if not open_contexts:
                 return wrapped(*args, **kwargs)

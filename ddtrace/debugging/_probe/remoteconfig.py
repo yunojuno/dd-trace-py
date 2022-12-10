@@ -6,16 +6,22 @@ from typing import Callable
 from typing import Dict
 from typing import Iterable
 from typing import Optional
+from typing import Type
 
 from ddtrace import config as tracer_config
 from ddtrace.debugging._config import config
 from ddtrace.debugging._expressions import dd_compile
+from ddtrace.debugging._probe.model import CaptureLimits
+from ddtrace.debugging._probe.model import ConstTemplateSegment
+from ddtrace.debugging._probe.model import DslExpression
+from ddtrace.debugging._probe.model import ExpressionTemplateSegment
 from ddtrace.debugging._probe.model import FunctionProbe
 from ddtrace.debugging._probe.model import LineProbe
+from ddtrace.debugging._probe.model import LogFunctionProbe
 from ddtrace.debugging._probe.model import LogLineProbe
-from ddtrace.debugging._probe.model import MetricProbe
+from ddtrace.debugging._probe.model import MetricFunctionProbe
+from ddtrace.debugging._probe.model import MetricLineProbe
 from ddtrace.debugging._probe.model import Probe
-from ddtrace.debugging._probe.model import TemplateSegment
 from ddtrace.internal.logger import get_logger
 from ddtrace.internal.remoteconfig.client import ConfigMetadata
 from ddtrace.internal.utils.cache import LFUCache
@@ -40,7 +46,7 @@ INVALID_EXPRESSION = _invalid_expression
 
 
 def _compile_expression(when):
-    # type: (Optional[Dict[str, Any]]) -> Optional[Callable[[Dict[str, Any]], Any]]
+    # type: (Optional[Dict[str, Any]]) -> Optional[DslExpression]
     global _EXPRESSION_CACHE, INVALID_EXPRESSION
 
     if when is None:
@@ -56,21 +62,21 @@ def _compile_expression(when):
             log.error("Cannot compile expression: %s", expr, exc_info=True)
             return INVALID_EXPRESSION
 
-    expr = when["dsl"]
+    dsl = when["dsl"]
 
-    compiled = _EXPRESSION_CACHE.get(expr, compile_or_invalid)  # type: Callable[[Dict[str, Any]], Any]
+    compiled = _EXPRESSION_CACHE.get(dsl, compile_or_invalid)  # type: Callable[[Dict[str, Any]], Any]
 
     if compiled is INVALID_EXPRESSION:
-        log.error("Cannot compile expression: %s", expr, exc_info=True)
+        log.error("Cannot compile expression: %s", dsl, exc_info=True)
 
-    return compiled
+    return DslExpression(dsl=dsl, callable=compiled)
 
 
 def _compile_segment(segment):
     if segment.get("str", ""):
-        return TemplateSegment(str=segment["str"])
-    elif segment.get("parsedExpr", None) is not None:
-        return TemplateSegment(expr=segment["expr"], parsed_expr=_compile_expression(segment["parsedExpr"]))
+        return ConstTemplateSegment(str=segment["str"])
+    elif segment.get("json", None) is not None:
+        return ExpressionTemplateSegment(expr=_compile_expression(segment))
 
     # what type of error we should show here?
     return None
@@ -95,52 +101,62 @@ def _filter_by_env_and_version(f):
     return _wrapper
 
 
+def _create_probe_based_on_location(args, attribs, line_class, function_class):
+    # type: (Dict[str, Any], Dict[str, Any], Type, Type) -> Any
+    if attribs["where"].get("sourceFile", None):
+        ProbeType = line_class
+        args["source_file"] = attribs["where"]["sourceFile"]
+        args["line"] = int(attribs["where"]["lines"][0])
+    else:
+        ProbeType = function_class
+        args["module"] = attribs["where"].get("type") or attribs["where"]["typeName"]
+        args["func_qname"] = attribs["where"].get("method") or attribs["where"]["methodName"]
+        args["evaluate_at"] = attribs.get("evaluateAt")
+
+    return ProbeType(**args)
+
+
 def probe(_id, _type, attribs):
     # type: (str, str, Dict[str, Any]) -> Probe
     """
     Create a new Probe instance.
     """
+
     if _type == "snapshotProbes":
         args = dict(
             probe_id=_id,
             condition=_compile_expression(attribs.get("when")),
             active=attribs["active"],
             tags=dict(_.split(":", 1) for _ in attribs.get("tags", [])),
+            capture=CaptureLimits(**attribs.get("capture", None)) if attribs.get("capture", None) else None,
         )
 
-        if attribs["where"].get("sourceFile", None):
-            ProbeType = LineProbe
-            args["source_file"] = attribs["where"]["sourceFile"]
-            args["line"] = int(attribs["where"]["lines"][0])
-        else:
-            ProbeType = FunctionProbe  # type: ignore[assignment]
-            args["module"] = attribs["where"].get("type") or attribs["where"]["typeName"]
-            args["func_qname"] = attribs["where"].get("method") or attribs["where"]["methodName"]
-
-        return ProbeType(**args)
+        return _create_probe_based_on_location(args, attribs, LineProbe, FunctionProbe)
 
     elif _type == "metricProbes":
-        return MetricProbe(
+        args = dict(
             probe_id=_id,
             active=attribs["active"],
             tags=dict(_.split(":", 1) for _ in attribs.get("tags", [])),
-            source_file=attribs["where"]["sourceFile"],
-            line=int(attribs["where"]["lines"][0]),
             name=attribs["metricName"],
             kind=attribs["kind"],
             value=_compile_expression(attribs.get("value")),
         )
 
+        return _create_probe_based_on_location(args, attribs, MetricLineProbe, MetricFunctionProbe)
+
     elif _type == "logProbes":
-        return LogLineProbe(
+        args = dict(
             probe_id=_id,
+            condition=_compile_expression(attribs.get("when")),
             active=attribs["active"],
             tags=dict(_.split(":", 1) for _ in attribs.get("tags", [])),
-            source_file=attribs["where"]["sourceFile"],
-            line=int(attribs["where"]["lines"][0]),
+            capture=CaptureLimits(**attribs.get("capture", None)) if attribs.get("capture", None) else None,
             template=attribs["template"],
             segments=[_compile_segment(segment) for segment in attribs.get("segments", [])],
         )
+
+        return _create_probe_based_on_location(args, attribs, LogLineProbe, LogFunctionProbe)
 
     raise ValueError("Unknown probe type: %s" % _type)
 
