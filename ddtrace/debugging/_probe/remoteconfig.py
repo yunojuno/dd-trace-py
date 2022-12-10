@@ -39,7 +39,7 @@ def _invalid_expression(_):
     Any signs of invalid conditions in logs is an indication of a problem with
     the expression compiler.
     """
-    return False
+    return None
 
 
 INVALID_EXPRESSION = _invalid_expression

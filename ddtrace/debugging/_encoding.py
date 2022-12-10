@@ -131,7 +131,6 @@ def _snapshot_v2(snapshot):
 
 def _logger_v2(thread, frame):
     # type: (Thread, FrameType) -> Dict[str, Any]
-    thread = thread
     code = frame.f_code
 
     return {
