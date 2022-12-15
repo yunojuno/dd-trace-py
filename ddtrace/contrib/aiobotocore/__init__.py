@@ -5,8 +5,8 @@ library. This integration is not enabled by default.
 Enabling
 ~~~~~~~~
 
-The aiobotocore integration is not enabled by default. Use
-:func:`patch()<ddtrace.patch>` to enable the integration::
+The aiobotocore integration is not enabled by default. Use ``dtrace.patch()`` to
+enable the integration::
 
     from ddtrace import patch
     patch(aiobotocore=True)

@@ -5,9 +5,9 @@ Enabling
 ~~~~~~~~
 
 The boto integration is enabled automatically when using
-:ref:`ddtrace-run<ddtracerun>` or :func:`patch_all()<ddtrace.patch_all>`.
+:ref:`ddtrace-run<ddtracerun>` or ``ddtrace.patch_all()``.
 
-Or use :func:`patch()<ddtrace.patch>` to manually enable the integration::
+Or use ``ddtrace.patch()`` to manually enable the integration::
 
     from ddtrace import patch
     patch(boto=True)
