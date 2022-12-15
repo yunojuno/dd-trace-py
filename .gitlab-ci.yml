@@ -41,6 +41,18 @@ trigger_microbenchmarking_platform:
     UPSTREAM_BRANCH: $CI_COMMIT_REF_NAME
     UPSTREAM_COMMIT_SHA: $CI_COMMIT_SHA
 
+deploy_to_di_backend:
+  stage: deploy
+  rules:
+    - when: manual
+      allow_failure: true
+  trigger:
+    project: DataDog/debugger-backend
+    branch: ojung/dogfood-from-dd-trace-java
+  variables:
+    UPSTREAM_PROJECT_NAME: $CI_PROJECT_NAME
+    UPSTREAM_COMMIT_SHA: $CI_COMMIT_SHA
+
 deploy_to_docker_registries:
   stage: deploy
   rules:
