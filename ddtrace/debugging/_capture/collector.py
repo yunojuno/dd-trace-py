@@ -89,7 +89,6 @@ class CapturedEventCollector(object):
 
     def push(self, event):
         # type: (CapturedEvent) -> None
-
         if event.state == CaptureState.SKIP_COND:
             meter.increment("skip", tags={"cause": "cond", "probe_id": event.probe.probe_id})
         elif event.state == CaptureState.SKIP_COND_ERROR:

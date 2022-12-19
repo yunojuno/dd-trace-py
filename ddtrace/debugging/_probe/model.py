@@ -154,19 +154,6 @@ class MetricLineProbe(LineProbe):
 
 
 @attr.s
-class TemplateSegment(object):
-    str_value = attr.ib(type=Optional[str], default=None)
-    expr = attr.ib(type=Optional[str], default=None)
-    parsed_expr = attr.ib(type=Optional[Callable[[Dict[str, Any]], Any]], default=None)
-
-
-@attr.s
-class LogLineProbe(LineProbe):
-    template = attr.ib(type=Optional[str], default=None)
-    segments = attr.ib(type=Optional[List[TemplateSegment]], default=None)
-
-
-@attr.s
 class MetricFunctionProbe(FunctionProbe):
     kind = attr.ib(type=Optional[str], default=None)
     name = attr.ib(type=Optional[str], default=None)

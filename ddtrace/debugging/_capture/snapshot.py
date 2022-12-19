@@ -87,6 +87,8 @@ class Snapshot(CapturedEvent):
             if probe.limiter.limit() is RateLimitExceeded:
                 self.state = CaptureState.SKIP_RATE
                 return
+        elif self.state != CaptureState.NONE:
+            return
 
         _locals = []
         if exc_info[1] is None:

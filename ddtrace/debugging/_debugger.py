@@ -35,6 +35,7 @@ from ddtrace.debugging._probe.model import FunctionProbe
 from ddtrace.debugging._probe.model import LineProbe
 from ddtrace.debugging._probe.model import LogFunctionProbe
 from ddtrace.debugging._probe.model import LogLineProbe
+from ddtrace.debugging._probe.model import MetricFunctionProbe
 from ddtrace.debugging._probe.model import MetricLineProbe
 from ddtrace.debugging._probe.model import MetricProbeKind
 from ddtrace.debugging._probe.model import Probe
@@ -328,7 +329,10 @@ class Debugger(Service):
 
             open_contexts = []
             for probe in active_probes:
-                if isinstance(probe, LogFunctionProbe):
+                if isinstance(probe, MetricFunctionProbe):
+                    # TODO: metric probe
+                    pass
+                elif isinstance(probe, LogFunctionProbe):
                     logMessage = LogMessage(
                         probe=probe,
                         frame=actual_frame,  # type: ignore[arg-type]

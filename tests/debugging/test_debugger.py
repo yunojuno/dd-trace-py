@@ -14,6 +14,7 @@ from ddtrace.debugging._probe.model import ExpressionTemplateSegment
 from ddtrace.debugging._probe.model import FunctionProbe
 from ddtrace.debugging._probe.model import LineProbe
 from ddtrace.debugging._probe.model import LogLineProbe
+from ddtrace.debugging._probe.model import MethodLocation
 from ddtrace.debugging._probe.model import MetricLineProbe
 from ddtrace.debugging._probe.model import MetricProbeKind
 from ddtrace.debugging._probe.registry import _get_probe_location
@@ -762,6 +763,28 @@ def test_debugger_condition_eval_then_rate_limit():
         assert "42" == snapshot["debugger.snapshot"]["captures"]["lines"]["36"]["arguments"]["bar"]["value"], snapshot
 
 
+def test_debugger_function_probe_eval_on_enter():
+    from tests.submod.stuff import mutator
+
+    with debugger() as d:
+        d.add_probes(
+            FunctionProbe(
+                probe_id="duration-probe",
+                module="tests.submod.stuff",
+                func_qname="mutator",
+                evaluate_at=MethodLocation.ENTER,
+                condition=DslExpression(
+                    dsl="contains(#arg,42)", callable=dd_compile({"not": {"contains": ["#arg", 42]}})
+                ),
+            )
+        )
+
+        mutator(arg=[])
+
+        (snapshot,) = d.test_queue
+        assert snapshot, d.test_queue
+
+
 def test_debugger_function_probe_eval_on_exit():
     from tests.submod.stuff import mutator
 
@@ -771,6 +794,7 @@ def test_debugger_function_probe_eval_on_exit():
                 probe_id="duration-probe",
                 module="tests.submod.stuff",
                 func_qname="mutator",
+                evaluate_at=MethodLocation.EXIT,
                 condition=DslExpression(dsl="contains(#arg,42)", callable=dd_compile({"contains": ["#arg", 42]})),
             )
         )
@@ -795,7 +819,10 @@ def test_debugger_lambda_fuction_access_locals():
                 probe_id="duration-probe",
                 module="tests.submod.stuff",
                 func_qname="age_checker",
-                condition=dd_compile({"any": ["#people", {"eq": ["#name", "@it.name"]}]}),
+                condition=DslExpression(
+                    dsl="any(#people, @it.name == #name)",
+                    callable=dd_compile({"any": ["#people", {"eq": ["#name", "@it.name"]}]}),
+                ),
             )
         )
 
