@@ -38,9 +38,9 @@ class CaptureState(object):
 
 @attr.s
 class CapturedEvent(six.with_metaclass(abc.ABCMeta)):
-    """Capture Event baseclass.
+    """Captured event base class.
 
-    Used to store collected when a probe is triggered.
+    Used to store captured data when a probe is triggered.
     """
 
     probe = attr.ib(type=Probe)  # type: Probe
