@@ -12,8 +12,9 @@ from ddtrace.debugging._capture.model import EvaluationError
 from ddtrace.debugging._capture.safe_getter import serialize
 from ddtrace.debugging._probe.model import ConstTemplateSegment
 from ddtrace.debugging._probe.model import ExpressionEvaluationError
-from ddtrace.debugging._probe.model import FunctionProbe
-from ddtrace.debugging._probe.model import MethodLocation
+from ddtrace.debugging._probe.model import FunctionLocationDetails
+from ddtrace.debugging._probe.model import ProbeEvaluateTimingForMethod
+from ddtrace.debugging._probe.model import SnapshotProbeDetails
 from ddtrace.debugging._probe.model import TemplateSegment
 
 
@@ -30,7 +31,8 @@ class LogMessage(CapturedEvent):
 
     def _eval_segment(self, segment, _locals):
         # type: (TemplateSegment, Dict[str, Any]) -> str
-        capture = self.probe.capture
+        probe = cast(SnapshotProbeDetails, self.probe)
+        capture = probe.capture
         try:
             if isinstance(segment, ConstTemplateSegment):
                 return segment.eval(_locals)
@@ -46,9 +48,9 @@ class LogMessage(CapturedEvent):
             return "ERROR"
 
     def enter(self):
-        probe = cast(FunctionProbe, self.probe)
+        probe = cast(FunctionLocationDetails, self.probe)
 
-        if probe.evaluate_at == MethodLocation.EXIT:
+        if probe.evaluate_at == ProbeEvaluateTimingForMethod.EXIT:
             return
 
         _args = dict(self.args) if self.args else {}
@@ -56,20 +58,20 @@ class LogMessage(CapturedEvent):
             return
 
         self.message = "".join([self._eval_segment(s, _args) for s in self.segments])
-        self.state = CaptureState.COMMIT
+        self.state = CaptureState.DONE_AND_COMMIT
 
     def exit(self, retval, exc_info, duration):
-        probe = cast(FunctionProbe, self.probe)
+        probe = cast(FunctionLocationDetails, self.probe)
         _args = self._enrich_args(retval, exc_info, duration)
 
-        if probe.evaluate_at != MethodLocation.EXIT:
+        if probe.evaluate_at != ProbeEvaluateTimingForMethod.EXIT:
             return
         if not self._evalCondition(_args):
             return
 
         self.message = "".join([self._eval_segment(s, _args) for s in self.segments])
         self.duration = duration
-        self.state = CaptureState.COMMIT
+        self.state = CaptureState.DONE_AND_COMMIT
 
     def line(self, _locals=None, exc_info=(None, None, None)):
         frame = self.frame
@@ -78,4 +80,4 @@ class LogMessage(CapturedEvent):
             return
 
         self.message = "".join([self._eval_segment(s, _locals or frame.f_locals) for s in self.segments])
-        self.state = CaptureState.COMMIT
+        self.state = CaptureState.DONE_AND_COMMIT

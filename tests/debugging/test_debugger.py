@@ -11,12 +11,12 @@ from ddtrace.debugging._expressions import dd_compile
 from ddtrace.debugging._probe.model import ConstTemplateSegment
 from ddtrace.debugging._probe.model import DslExpression
 from ddtrace.debugging._probe.model import ExpressionTemplateSegment
-from ddtrace.debugging._probe.model import FunctionProbe
-from ddtrace.debugging._probe.model import LineProbe
 from ddtrace.debugging._probe.model import LogLineProbe
-from ddtrace.debugging._probe.model import MethodLocation
 from ddtrace.debugging._probe.model import MetricLineProbe
 from ddtrace.debugging._probe.model import MetricProbeKind
+from ddtrace.debugging._probe.model import ProbeEvaluateTimingForMethod
+from ddtrace.debugging._probe.model import SnapshotFunctionProbe
+from ddtrace.debugging._probe.model import SnapshotLineProbe
 from ddtrace.debugging._probe.registry import _get_probe_location
 from ddtrace.internal.remoteconfig import RemoteConfig
 from ddtrace.internal.utils.inspection import linenos
@@ -27,7 +27,7 @@ from tests.submod.stuff import modulestuff as imported_modulestuff
 
 def good_probe():
     # DEV: We build this on demand to ensure that rate limiting gets reset.
-    return LineProbe(
+    return SnapshotLineProbe.create(
         probe_id="probe-instance-method",
         source_file="tests/submod/stuff.py",
         line=36,
@@ -59,7 +59,7 @@ def simple_debugger_test(probe, func):
 
 def test_debugger_line_probe_on_instance_method():
     snapshots = simple_debugger_test(
-        LineProbe(
+        SnapshotLineProbe.create(
             probe_id="probe-instance-method",
             source_file="tests/submod/stuff.py",
             line=36,
@@ -84,7 +84,7 @@ def test_debugger_line_probe_on_imported_module_function():
 
     lineno = min(linenos(imported_modulestuff))
     snapshots = simple_debugger_test(
-        LineProbe(
+        SnapshotLineProbe.create(
             probe_id="probe-instance-method",
             source_file="tests/submod/stuff.py",
             line=lineno,
@@ -103,7 +103,7 @@ def test_debugger_line_probe_on_imported_module_function():
     "probe, trigger",
     [
         (
-            FunctionProbe(
+            SnapshotFunctionProbe.create(
                 probe_id="probe-instance-method",
                 module="tests.submod.stuff",
                 func_qname="Stuff.instancestuff",
@@ -112,7 +112,7 @@ def test_debugger_line_probe_on_imported_module_function():
             lambda: getattr(Stuff(), "instancestuff")(42),
         ),
         (
-            LineProbe(
+            SnapshotLineProbe.create(
                 probe_id="probe-instance-method",
                 source_file="tests/submod/stuff.py",
                 line=36,
@@ -172,7 +172,7 @@ def test_debugger_probe_new_delete(probe, trigger):
     "probe, trigger",
     [
         (
-            FunctionProbe(
+            SnapshotFunctionProbe.create(
                 probe_id="probe-instance-method",
                 module="tests.submod.stuff",
                 func_qname="Stuff.instancestuff",
@@ -181,7 +181,7 @@ def test_debugger_probe_new_delete(probe, trigger):
             lambda: Stuff().instancestuff(42),
         ),
         (
-            LineProbe(
+            SnapshotLineProbe.create(
                 probe_id="probe-instance-method",
                 source_file="tests/submod/stuff.py",
                 line=36,
@@ -227,7 +227,7 @@ def test_debugger_probe_active_inactive(probe, trigger):
 
 def test_debugger_function_probe_on_instance_method():
     snapshots = simple_debugger_test(
-        FunctionProbe(
+        SnapshotFunctionProbe.create(
             probe_id="probe-instance-method",
             module="tests.submod.stuff",
             func_qname="Stuff.instancestuff",
@@ -257,7 +257,7 @@ def test_debugger_function_probe_on_function_with_exception():
     from tests.submod import stuff
 
     snapshots = simple_debugger_test(
-        FunctionProbe(
+        SnapshotFunctionProbe.create(
             probe_id="probe-instance-method",
             module="tests.submod.stuff",
             func_qname="throwexcstuff",
@@ -284,7 +284,7 @@ def test_debugger_function_probe_on_function_with_exception():
 def test_debugger_invalid_condition():
     with debugger() as d:
         d.add_probes(
-            LineProbe(
+            SnapshotLineProbe.create(
                 probe_id="foo",
                 source_file="tests/submod/stuff.py",
                 line=36,
@@ -304,7 +304,7 @@ def test_debugger_invalid_condition():
 
 def test_debugger_conditional_line_probe_on_instance_method():
     snapshots = simple_debugger_test(
-        LineProbe(
+        SnapshotLineProbe.create(
             probe_id="probe-instance-method",
             source_file="tests/submod/stuff.py",
             line=36,
@@ -323,7 +323,7 @@ def test_debugger_conditional_line_probe_on_instance_method():
 def test_debugger_invalid_line():
     with debugger() as d:
         d.add_probes(
-            LineProbe(
+            SnapshotLineProbe.create(
                 probe_id="invalidline",
                 source_file="tests/submod/stuff.py",
                 line=360000,
@@ -344,7 +344,7 @@ def test_debugger_invalid_line():
 def test_debugger_invalid_source_file(log):
     with debugger() as d:
         d.add_probes(
-            LineProbe(
+            SnapshotLineProbe.create(
                 probe_id="invalidsource",
                 source_file="tests/submod/bonkers.py",
                 line=36,
@@ -367,7 +367,7 @@ def test_debugger_invalid_source_file(log):
 
 def test_debugger_decorated_method():
     simple_debugger_test(
-        LineProbe(
+        SnapshotLineProbe.create(
             probe_id="probe-decorated-method",
             source_file="tests/submod/stuff.py",
             line=48,
@@ -385,7 +385,7 @@ def test_debugger_max_probes(mock_log):
         )
         assert len(d._probe_registry) == 1
         d.add_probes(
-            LineProbe(
+            SnapshotLineProbe.create(
                 probe_id="probe-decorated-method",
                 source_file="tests/submod/stuff.py",
                 line=48,
@@ -399,7 +399,7 @@ def test_debugger_max_probes(mock_log):
 def test_debugger_tracer_correlation():
     with debugger() as d:
         d.add_probes(
-            LineProbe(
+            SnapshotLineProbe.create(
                 probe_id="probe-instance-method",
                 source_file="tests/submod/stuff.py",
                 line=36,
@@ -427,7 +427,7 @@ def test_debugger_captured_exception():
     from tests.submod import stuff
 
     snapshots = simple_debugger_test(
-        LineProbe(
+        SnapshotLineProbe.create(
             probe_id="captured-exception-test",
             source_file="tests/submod/stuff.py",
             line=96,
@@ -447,7 +447,7 @@ def test_debugger_multiple_threads():
     with debugger() as d:
         d.add_probes(
             good_probe(),
-            LineProbe(probe_id="thread-test", source_file="tests/submod/stuff.py", line=40),
+            SnapshotLineProbe.create(probe_id="thread-test", source_file="tests/submod/stuff.py", line=40),
         )
         sleep(0.5)
 
@@ -487,7 +487,7 @@ def mock_metrics():
 
 
 def create_line_metric_probe(kind, value=None):
-    return MetricLineProbe(
+    return MetricLineProbe.create(
         probe_id="metric-probe-test",
         source_file="tests/submod/stuff.py",
         line=36,
@@ -542,7 +542,7 @@ def test_debugger_multiple_function_probes_on_same_function():
     global Stuff
 
     probes = [
-        FunctionProbe(
+        SnapshotFunctionProbe.create(
             probe_id="probe-instance-method-%d" % i,
             module="tests.submod.stuff",
             func_qname="Stuff.instancestuff",
@@ -597,7 +597,7 @@ def wrapper(wrapped, instance, args, kwargs):
 
 def test_debugger_function_probe_on_wrapped_function(stuff):
     probes = [
-        FunctionProbe(
+        SnapshotFunctionProbe.create(
             probe_id="probe-on-wrapped-function",
             module="tests.submod.stuff",
             func_qname="Stuff.instancestuff",
@@ -618,7 +618,7 @@ def test_debugger_function_probe_on_wrapped_function(stuff):
 
 def test_debugger_wrapped_function_on_function_probe(stuff):
     probes = [
-        FunctionProbe(
+        SnapshotFunctionProbe.create(
             probe_id="wrapped-function-on-function-probe",
             module="tests.submod.stuff",
             func_qname="Stuff.instancestuff",
@@ -654,7 +654,7 @@ def test_debugger_line_probe_on_wrapped_function(stuff):
 
     with debugger() as d:
         d.add_probes(
-            LineProbe(
+            SnapshotLineProbe.create(
                 probe_id="line-probe-wrapped-method",
                 source_file="tests/submod/stuff.py",
                 line=36,
@@ -686,13 +686,13 @@ def test_probe_status_logging(monkeypatch):
     try:
         with debugger(diagnostics_interval=0.5) as d:
             d.add_probes(
-                LineProbe(
+                SnapshotLineProbe.create(
                     probe_id="line-probe-ok",
                     source_file="tests/submod/stuff.py",
                     line=36,
                     condition=None,
                 ),
-                FunctionProbe(
+                SnapshotFunctionProbe.create(
                     probe_id="line-probe-error",
                     module="tests.submod.stuff",
                     func_qname="foo",
@@ -723,7 +723,7 @@ def test_debugger_function_probe_duration(duration):
 
     with debugger(poll_interval=0.1) as d:
         d.add_probes(
-            FunctionProbe(
+            SnapshotFunctionProbe.create(
                 probe_id="duration-probe",
                 module="tests.submod.stuff",
                 func_qname="durationstuff",
@@ -741,7 +741,7 @@ def test_debugger_condition_eval_then_rate_limit():
 
     with debugger(upload_flush_interval=0.1) as d:
         d.add_probes(
-            LineProbe(
+            SnapshotLineProbe.create(
                 probe_id="foo",
                 source_file="tests/submod/stuff.py",
                 line=36,
@@ -768,11 +768,11 @@ def test_debugger_function_probe_eval_on_enter():
 
     with debugger() as d:
         d.add_probes(
-            FunctionProbe(
+            SnapshotFunctionProbe.create(
                 probe_id="duration-probe",
                 module="tests.submod.stuff",
                 func_qname="mutator",
-                evaluate_at=MethodLocation.ENTER,
+                evaluate_at=ProbeEvaluateTimingForMethod.ENTER,
                 condition=DslExpression(
                     dsl="contains(#arg,42)", callable=dd_compile({"not": {"contains": ["#arg", 42]}})
                 ),
@@ -790,11 +790,11 @@ def test_debugger_function_probe_eval_on_exit():
 
     with debugger() as d:
         d.add_probes(
-            FunctionProbe(
+            SnapshotFunctionProbe.create(
                 probe_id="duration-probe",
                 module="tests.submod.stuff",
                 func_qname="mutator",
-                evaluate_at=MethodLocation.EXIT,
+                evaluate_at=ProbeEvaluateTimingForMethod.EXIT,
                 condition=DslExpression(dsl="contains(#arg,42)", callable=dd_compile({"contains": ["#arg", 42]})),
             )
         )
@@ -815,7 +815,7 @@ def test_debugger_lambda_fuction_access_locals():
 
     with debugger() as d:
         d.add_probes(
-            FunctionProbe(
+            SnapshotFunctionProbe.create(
                 probe_id="duration-probe",
                 module="tests.submod.stuff",
                 func_qname="age_checker",
@@ -841,7 +841,7 @@ def test_debugger_log_live_probe_generate_messages():
 
     with debugger(upload_flush_interval=0.1) as d:
         d.add_probes(
-            LogLineProbe(
+            LogLineProbe.create(
                 probe_id="foo",
                 source_file="tests/submod/stuff.py",
                 line=36,

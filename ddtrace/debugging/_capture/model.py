@@ -7,6 +7,7 @@ from typing import Dict
 from typing import List
 from typing import Optional
 from typing import Tuple
+from typing import cast
 from uuid import uuid4
 
 import attr
@@ -14,8 +15,9 @@ import six
 
 from ddtrace.context import Context
 from ddtrace.debugging._capture import safe_getter
-from ddtrace.debugging._probe.model import ConditionalProbe
 from ddtrace.debugging._probe.model import ExpressionEvaluationError
+from ddtrace.debugging._probe.model import Probe
+from ddtrace.debugging._probe.model import ProbeConditionDetails
 
 
 @attr.s
@@ -30,7 +32,8 @@ class CaptureState(object):
     SKIP_COND = "SKIP_COND"
     SKIP_COND_ERROR = "SKIP_COND_ERROR"
     SKIP_RATE = "SKIP_RATE"
-    COMMIT = "COMMIT"
+    DONE = "DONE"
+    DONE_AND_COMMIT = "COMMIT"
 
 
 @attr.s
@@ -40,7 +43,7 @@ class CapturedEvent(six.with_metaclass(abc.ABCMeta)):
     Used to store collected when a probe is triggered.
     """
 
-    probe = attr.ib(type=ConditionalProbe)  # type: ConditionalProbe
+    probe = attr.ib(type=Probe)  # type: Probe
     frame = attr.ib(type=FrameType)  # type: FrameType
     thread = attr.ib(type=Thread)
 
@@ -54,7 +57,8 @@ class CapturedEvent(six.with_metaclass(abc.ABCMeta)):
     def _evalCondition(self, _locals=None):
         # type: (Optional[Dict[str, Any]]) -> bool
         """Evaluate the probe condition against the collected frame."""
-        condition = self.probe.condition
+        probe = cast(ProbeConditionDetails, self.probe)
+        condition = probe.condition
         if condition is None:
             return True
 

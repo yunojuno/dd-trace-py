@@ -11,9 +11,9 @@ from ddtrace.debugging._capture import safe_getter
 from ddtrace.debugging._capture.model import CaptureState
 from ddtrace.debugging._capture.model import CapturedEvent
 from ddtrace.debugging._probe.model import CaptureLimits
-from ddtrace.debugging._probe.model import FunctionProbe
-from ddtrace.debugging._probe.model import LineProbe
-from ddtrace.debugging._probe.model import MethodLocation
+from ddtrace.debugging._probe.model import ProbeEvaluateTimingForMethod
+from ddtrace.debugging._probe.model import SnapshotFunctionProbe
+from ddtrace.debugging._probe.model import SnapshotLineProbe
 from ddtrace.internal.compat import ExcInfoType
 from ddtrace.internal.rate_limiter import RateLimitExceeded
 
@@ -57,10 +57,10 @@ class Snapshot(CapturedEvent):
 
     def enter(self):
         frame = self.frame
-        probe = cast(FunctionProbe, self.probe)
+        probe = cast(SnapshotFunctionProbe, self.probe)
         _args = list(self.args or safe_getter.get_args(frame))
 
-        if probe.evaluate_at == MethodLocation.EXIT:
+        if probe.evaluate_at == ProbeEvaluateTimingForMethod.EXIT:
             return
 
         if not self._evalCondition(dict(_args)):
@@ -78,10 +78,10 @@ class Snapshot(CapturedEvent):
         )
 
     def exit(self, retval, exc_info, duration):
-        probe = cast(FunctionProbe, self.probe)
+        probe = cast(SnapshotFunctionProbe, self.probe)
         _args = self._enrich_args(retval, exc_info, duration)
 
-        if probe.evaluate_at == MethodLocation.EXIT:
+        if probe.evaluate_at == ProbeEvaluateTimingForMethod.EXIT:
             if not self._evalCondition(_args):
                 return
             if probe.limiter.limit() is RateLimitExceeded:
@@ -98,11 +98,11 @@ class Snapshot(CapturedEvent):
             self.args or safe_getter.get_args(self.frame), _locals, exc_info, limits=probe.capture
         )
         self.duration = duration
-        self.state = CaptureState.COMMIT
+        self.state = CaptureState.DONE_AND_COMMIT
 
     def line(self, _locals=None, exc_info=(None, None, None)):
         frame = self.frame
-        probe = cast(LineProbe, self.probe)
+        probe = cast(SnapshotLineProbe, self.probe)
 
         if not self._evalCondition(frame.f_locals):
             return
@@ -117,4 +117,4 @@ class Snapshot(CapturedEvent):
             exc_info,
             limits=probe.capture,
         )
-        self.state = CaptureState.COMMIT
+        self.state = CaptureState.DONE_AND_COMMIT

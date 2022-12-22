@@ -4,8 +4,8 @@ from uuid import uuid4
 import pytest
 
 from ddtrace.debugging._config import config
-from ddtrace.debugging._probe.model import LineProbe
 from ddtrace.debugging._probe.model import Probe
+from ddtrace.debugging._probe.model import SnapshotLineProbe
 from ddtrace.debugging._probe.remoteconfig import ProbePollerEvent
 from ddtrace.debugging._probe.remoteconfig import ProbeRCAdapter
 from ddtrace.debugging._probe.remoteconfig import _filter_by_env_and_version
@@ -69,28 +69,28 @@ def test_poller_env_version(env, version, expected, mock_config):
     with override_global_config(dict(env=env, version=version)):
         mock_config.add_probes(
             [
-                LineProbe(
+                SnapshotLineProbe.create(
                     probe_id="probe1",
                     source_file="tests/debugger/submod/stuff.py",
                     line=36,
                     condition=None,
                     tags={"env": "prod", "version": "dev"},
                 ),
-                LineProbe(
+                SnapshotLineProbe.create(
                     probe_id="probe2",
                     source_file="tests/debugger/submod/stuff.py",
                     line=36,
                     condition=None,
                     tags={"env": "prod"},
                 ),
-                LineProbe(
+                SnapshotLineProbe.create(
                     probe_id="probe3",
                     source_file="tests/debugger/submod/stuff.py",
                     line=36,
                     condition=None,
                     tags={"version": "dev"},
                 ),
-                LineProbe(
+                SnapshotLineProbe.create(
                     probe_id="probe4",
                     source_file="tests/debugger/submod/stuff.py",
                     line=36,
@@ -112,25 +112,25 @@ def test_poller_events(mock_config):
 
     mock_config.add_probes(
         [
-            LineProbe(
+            SnapshotLineProbe.create(
                 probe_id="probe1",
                 source_file="tests/debugger/submod/stuff.py",
                 line=36,
                 condition=None,
             ),
-            LineProbe(
+            SnapshotLineProbe.create(
                 probe_id="probe2",
                 source_file="tests/debugger/submod/stuff.py",
                 line=36,
                 condition=None,
             ),
-            LineProbe(
+            SnapshotLineProbe.create(
                 probe_id="probe3",
                 source_file="tests/debugger/submod/stuff.py",
                 line=36,
                 condition=None,
             ),
-            LineProbe(
+            SnapshotLineProbe.create(
                 probe_id="probe4",
                 source_file="tests/debugger/submod/stuff.py",
                 line=36,
@@ -150,7 +150,7 @@ def test_poller_events(mock_config):
         mock_config.add_probes(
             [
                 # Modified
-                LineProbe(
+                SnapshotLineProbe.create(
                     probe_id="probe2",
                     source_file="tests/debugger/submod/stuff.py",
                     line=36,
@@ -158,7 +158,7 @@ def test_poller_events(mock_config):
                     active=False,
                 ),
                 # New
-                LineProbe(
+                SnapshotLineProbe.create(
                     probe_id="probe5",
                     source_file="tests/debugger/submod/stuff.py",
                     line=36,
@@ -233,6 +233,24 @@ def test_multiple_configs():
             }
         )
 
+        adapter(
+            config_metadata("logProbe_probe3"),
+            {
+                "id": "probe3",
+                "active": True,
+                "tags": ["foo:bar"],
+                "where": {"sourceFile": "tests/submod/stuff.p", "lines": ["36"]},
+                "template": "hello {#foo}",
+                "segments:": [{"str": "hello "}, {"dsl": "foo", "json": "#foo"}],
+            },
+        )
+
+        validate_events(
+            {
+                (ProbePollerEvent.NEW_PROBES, frozenset({"probe3"})),
+            }
+        )
+
         sleep(0.5)
 
         # testing two things:
@@ -243,7 +261,7 @@ def test_multiple_configs():
 
         validate_events(
             {
-                (ProbePollerEvent.STATUS_UPDATE, frozenset({"probe1", "probe2"})),
+                (ProbePollerEvent.STATUS_UPDATE, frozenset({"probe1", "probe2", "probe3"})),
             }
         )
 

@@ -15,13 +15,13 @@ from ddtrace.debugging._probe.model import CaptureLimits
 from ddtrace.debugging._probe.model import ConstTemplateSegment
 from ddtrace.debugging._probe.model import DslExpression
 from ddtrace.debugging._probe.model import ExpressionTemplateSegment
-from ddtrace.debugging._probe.model import FunctionProbe
-from ddtrace.debugging._probe.model import LineProbe
 from ddtrace.debugging._probe.model import LogFunctionProbe
 from ddtrace.debugging._probe.model import LogLineProbe
 from ddtrace.debugging._probe.model import MetricFunctionProbe
 from ddtrace.debugging._probe.model import MetricLineProbe
 from ddtrace.debugging._probe.model import Probe
+from ddtrace.debugging._probe.model import SnapshotFunctionProbe
+from ddtrace.debugging._probe.model import SnapshotLineProbe
 from ddtrace.internal.logger import get_logger
 from ddtrace.internal.remoteconfig.client import ConfigMetadata
 from ddtrace.internal.utils.cache import LFUCache
@@ -128,18 +128,21 @@ def probe(_id, _type, attribs):
             condition=_compile_expression(attribs.get("when")),
             active=attribs["active"],
             tags=dict(_.split(":", 1) for _ in attribs.get("tags", [])),
+            rate=1.0,
             capture=CaptureLimits(**attribs.get("capture", None)) if attribs.get("capture", None) else None,
         )
 
-        return _create_probe_based_on_location(args, attribs, LineProbe, FunctionProbe)
+        return _create_probe_based_on_location(args, attribs, SnapshotLineProbe, SnapshotFunctionProbe)
 
     elif _type == "metricProbes":
         args = dict(
             probe_id=_id,
+            condition=_compile_expression(attribs.get("when")),
             active=attribs["active"],
             tags=dict(_.split(":", 1) for _ in attribs.get("tags", [])),
             name=attribs["metricName"],
             kind=attribs["kind"],
+            rate=1.0,  # TODO: should we take rate limit out of Probe?
             value=_compile_expression(attribs.get("value")),
         )
 
@@ -152,6 +155,7 @@ def probe(_id, _type, attribs):
             active=attribs["active"],
             tags=dict(_.split(":", 1) for _ in attribs.get("tags", [])),
             capture=CaptureLimits(**attribs.get("capture", None)) if attribs.get("capture", None) else None,
+            rate=1.0,  # TODO: should we take rate limit out of Probe?
             template=attribs["template"],
             segments=[_compile_segment(segment) for segment in attribs.get("segments", [])],
         )

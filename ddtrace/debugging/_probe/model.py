@@ -10,6 +10,7 @@ from typing import Callable
 from typing import Dict
 from typing import List
 from typing import Optional
+from typing import Union
 
 import attr
 import six
@@ -25,6 +26,13 @@ from ddtrace.internal.utils.cache import cached
 
 
 log = get_logger(__name__)
+
+
+def _with_defaults(f, **defaults):
+    def _wrapper(*args, **kwargs):
+        return f(*args, **defaults, **kwargs)
+
+    return _wrapper
 
 
 @cached()
@@ -81,11 +89,10 @@ class DslExpression(object):
 @attr.s(hash=True)
 class Probe(six.with_metaclass(abc.ABCMeta)):
     probe_id = attr.ib(type=str)
-    tags = attr.ib(type=dict, factory=dict, eq=False)
-    active = attr.ib(type=bool, default=True, eq=False)
-    rate = attr.ib(type=float, default=1.0, eq=False)
+    tags = attr.ib(type=dict, eq=False)
+    active = attr.ib(type=bool, eq=False)
+    rate = attr.ib(type=float, eq=False)
     limiter = attr.ib(type=RateLimiter, init=False, repr=False, eq=False)  # type: RateLimiter
-    capture = attr.ib(type=CaptureLimits, default=CaptureLimits(), eq=False)  # type: CaptureLimits
 
     def __attrs_post_init__(self):
         self.limiter = RateLimiter(
@@ -107,35 +114,61 @@ class Probe(six.with_metaclass(abc.ABCMeta)):
         self.active = False
 
 
+def create_probe_defaults(f):
+    def _wrapper(*args, **kwargs):
+        kwargs.setdefault("tags", dict())
+        kwargs.setdefault("active", True)
+        kwargs.setdefault("rate", 1.0)
+        return f(*args, **kwargs)
+
+    return _wrapper
+
+
 @attr.s
-class ConditionalProbe(Probe):
+class ProbeConditionDetails(six.with_metaclass(abc.ABCMeta)):
     """Conditional probe.
 
     If the condition is ``None``, then this is equivalent to a non-conditional
     probe.
     """
 
-    condition = attr.ib(type=Optional[DslExpression], default=None)  # type: Optional[DslExpression]
+    condition = attr.ib(type=Optional[DslExpression])  # type: Optional[DslExpression]
+
+
+def probe_conditional_defaults(f):
+    def _wrapper(*args, **kwargs):
+        kwargs.setdefault("condition", None)
+        return f(*args, **kwargs)
+
+    return _wrapper
 
 
 @attr.s
-class LineProbe(ConditionalProbe):
-    source_file = attr.ib(type=Optional[str], default=None, converter=_resolve_source_file)  # type: ignore[misc]
-    line = attr.ib(type=Optional[int], default=None)
+class LineLocationDetails(six.with_metaclass(abc.ABCMeta)):
+    source_file = attr.ib(type=Optional[str], converter=_resolve_source_file)  # type: ignore[misc]
+    line = attr.ib(type=Optional[int])
 
 
 # TODO: make this an Enum once Python 2 support is dropped.
-class MethodLocation(object):
+class ProbeEvaluateTimingForMethod(object):
     DEFAULT = "DEFAULT"
     ENTER = "ENTER"
     EXIT = "EXIT"
 
 
 @attr.s
-class FunctionProbe(ConditionalProbe):
-    module = attr.ib(type=Optional[str], default=None)
-    func_qname = attr.ib(type=Optional[str], default=None)
-    evaluate_at = attr.ib(type=Optional[MethodLocation], default=MethodLocation.DEFAULT)
+class FunctionLocationDetails(six.with_metaclass(abc.ABCMeta)):
+    module = attr.ib(type=Optional[str])
+    func_qname = attr.ib(type=Optional[str])
+    evaluate_at = attr.ib(type=Optional[ProbeEvaluateTimingForMethod])
+
+
+def function_location_defaults(f):
+    def _wrapper(*args, **kwargs):
+        kwargs.setdefault("evaluate_at", ProbeEvaluateTimingForMethod.DEFAULT)
+        return f(*args, **kwargs)
+
+    return _wrapper
 
 
 # TODO: make this an Enum once Python 2 support is dropped.
@@ -147,16 +180,39 @@ class MetricProbeKind(object):
 
 
 @attr.s
-class MetricLineProbe(LineProbe):
-    kind = attr.ib(type=Optional[str], default=None)
-    name = attr.ib(type=Optional[str], default=None)
-    value = attr.ib(type=Optional[Callable[[Dict[str, Any]], Any]], default=None)
+class MetricProbeDetails(six.with_metaclass(abc.ABCMeta)):
+    kind = attr.ib(type=Optional[str])
+    name = attr.ib(type=Optional[str])
+    value = attr.ib(type=Optional[Callable[[Dict[str, Any]], Any]])
+
+
+def metric_probe_defaults(f):
+    def _wrapper(*args, **kwargs):
+        kwargs.setdefault("value", None)
+        return f(*args, **kwargs)
+
+    return _wrapper
 
 
 @attr.s
-class MetricFunctionProbe(FunctionProbe):
-    kind = attr.ib(type=Optional[str], default=None)
-    name = attr.ib(type=Optional[str], default=None)
+class MetricLineProbe(Probe, ProbeConditionDetails, LineLocationDetails, MetricProbeDetails):
+    @classmethod
+    @create_probe_defaults
+    @probe_conditional_defaults
+    @metric_probe_defaults
+    def create(cls, **kwargs):
+        return MetricLineProbe(**kwargs)
+
+
+@attr.s
+class MetricFunctionProbe(Probe, ProbeConditionDetails, FunctionLocationDetails, MetricProbeDetails):
+    @classmethod
+    @create_probe_defaults
+    @probe_conditional_defaults
+    @function_location_defaults
+    @metric_probe_defaults
+    def create(cls, **kwargs):
+        return MetricLineProbe(**kwargs)
 
 
 @attr.s
@@ -186,12 +242,65 @@ class ExpressionTemplateSegment(TemplateSegment):
 
 
 @attr.s
-class LogLineProbe(LineProbe):
-    template = attr.ib(type=Optional[str], default=None)
-    segments = attr.ib(type=Optional[List[TemplateSegment]], default=None)
+class SnapshotProbeDetails(six.with_metaclass(abc.ABCMeta)):
+    capture = attr.ib(type=CaptureLimits, eq=False)  # type: CaptureLimits
+
+
+def snapshot_probe_defaults(f):
+    def _wrapper(*args, **kwargs):
+        kwargs.setdefault("capture", CaptureLimits())
+        return f(*args, **kwargs)
+
+    return _wrapper
 
 
 @attr.s
-class LogFunctionProbe(FunctionProbe):
-    template = attr.ib(type=Optional[str], default=None)
-    segments = attr.ib(type=Optional[List[TemplateSegment]], default=None)
+class SnapshotLineProbe(Probe, ProbeConditionDetails, LineLocationDetails, SnapshotProbeDetails):
+    @classmethod
+    @create_probe_defaults
+    @probe_conditional_defaults
+    @snapshot_probe_defaults
+    def create(cls, **kwargs):
+        return SnapshotLineProbe(**kwargs)
+
+
+@attr.s
+class SnapshotFunctionProbe(Probe, ProbeConditionDetails, FunctionLocationDetails, SnapshotProbeDetails):
+    @classmethod
+    @create_probe_defaults
+    @probe_conditional_defaults
+    @function_location_defaults
+    @snapshot_probe_defaults
+    def create(cls, **kwargs):
+        return SnapshotFunctionProbe(**kwargs)
+
+
+@attr.s
+class LogProbeDetails(six.with_metaclass(abc.ABCMeta)):
+    template = attr.ib(type=Optional[str])
+    segments = attr.ib(type=Optional[List[TemplateSegment]])
+
+
+@attr.s
+class LogLineProbe(Probe, ProbeConditionDetails, LineLocationDetails, LogProbeDetails, SnapshotProbeDetails):
+    @classmethod
+    @create_probe_defaults
+    @probe_conditional_defaults
+    @snapshot_probe_defaults
+    def create(cls, **kwargs):
+        return LogLineProbe(**kwargs)
+
+
+@attr.s
+class LogFunctionProbe(Probe, ProbeConditionDetails, FunctionLocationDetails, LogProbeDetails, SnapshotProbeDetails):
+    @classmethod
+    @create_probe_defaults
+    @probe_conditional_defaults
+    @function_location_defaults
+    @snapshot_probe_defaults
+    def create(cls, **kwargs):
+        return LogFunctionProbe(**kwargs)
+
+
+LineProbes = Union[SnapshotLineProbe, LogLineProbe, MetricLineProbe]
+FunctionProbes = Union[SnapshotFunctionProbe, LogFunctionProbe, MetricFunctionProbe]

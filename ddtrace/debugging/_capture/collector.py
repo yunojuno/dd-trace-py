@@ -95,7 +95,7 @@ class CapturedEventCollector(object):
             meter.increment("skip", tags={"cause": "cond_exc", "probe_id": event.probe.probe_id})
         elif event.state == CaptureState.SKIP_RATE:
             meter.increment("skip", tags={"cause": "rate", "probe_id": event.probe.probe_id})
-        elif event.state == CaptureState.COMMIT:
+        elif event.state == CaptureState.DONE_AND_COMMIT:
             self._enqueue(event)
 
     def attach(self, event):

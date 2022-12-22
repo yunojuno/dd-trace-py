@@ -7,7 +7,7 @@ from debugger import config
 from debugger import status
 
 from ddtrace.debugging._function.discovery import FunctionDiscovery
-from ddtrace.debugging._probe.model import FunctionProbe
+from ddtrace.debugging._probe.model import FunctionLocationDetails
 
 
 # Track all instrumented functions and their call count.
@@ -22,7 +22,7 @@ class FunctionCollector(ModuleCollector):
         for fname, f in discovery._fullname_index.items():
             _tracked_funcs[fname] = 0
             DeterministicProfiler.add_probe(
-                FunctionProbe(
+                FunctionLocationDetails(
                     probe_id=str(hash(f)),
                     module=module.__name__,
                     func_qname=fname.replace(module.__name__, "").lstrip("."),
@@ -37,7 +37,7 @@ class DeterministicProfiler(ExplorationDebugger):
     @classmethod
     def report_func_calls(cls):
         # type: () -> None
-        for probe in (_ for _ in cls.get_triggered_probes() if isinstance(_, FunctionProbe)):
+        for probe in (_ for _ in cls.get_triggered_probes() if isinstance(_, FunctionLocationDetails)):
             _tracked_funcs[".".join([probe.module, probe.func_qname])] += 1
         print(("{:=^%ds}" % COLS).format(" Function coverage "))
         print("")

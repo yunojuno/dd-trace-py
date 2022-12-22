@@ -13,7 +13,7 @@ from debugger import status
 
 from ddtrace.debugging._capture.snapshot import Snapshot
 from ddtrace.debugging._function.discovery import FunctionDiscovery
-from ddtrace.debugging._probe.model import LineProbe
+from ddtrace.debugging._probe.model import SnapshotLineProbe
 from ddtrace.internal.module import origin
 
 
@@ -29,7 +29,7 @@ class LineCollector(ModuleCollector):
         _tracked_modules[o] = (discovery._module, {_ for _ in discovery.keys()})
         LineCoverage.add_probes(
             [
-                LineProbe(
+                SnapshotLineProbe(
                     probe_id="@".join([str(hash(f)), str(line)]),
                     source_file=origin(sys.modules[f.__module__]),
                     line=line,
@@ -48,7 +48,7 @@ class LineCoverage(ExplorationDebugger):
     def report_coverage(cls):
         # type: () -> None
         seen_lines_map = defaultdict(set)
-        for probe in (_ for _ in cls.get_triggered_probes() if isinstance(_, LineProbe)):
+        for probe in (_ for _ in cls.get_triggered_probes() if isinstance(_, SnapshotLineProbe)):
             seen_lines_map[probe.source_file].add(probe.line)
 
         try:

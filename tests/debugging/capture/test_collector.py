@@ -79,7 +79,7 @@ def test_collector_collect_enqueue_only_commit_state():
         mockedEvent = mock.Mock()
         with collector.attach(mockedEvent):
             mockedEvent.enter.assert_called_once()
-            mockedEvent.state = CaptureState.COMMIT if i % 2 == 0 else CaptureState.SKIP_COND
+            mockedEvent.state = CaptureState.DONE_AND_COMMIT if i % 2 == 0 else CaptureState.SKIP_COND
         mockedEvent.exit.assert_called_once()
 
     assert len(encoder.put.mock_calls) == 5

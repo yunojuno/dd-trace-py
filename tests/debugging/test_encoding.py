@@ -15,7 +15,7 @@ from ddtrace.debugging._encoding import SnapshotJsonEncoder
 from ddtrace.debugging._encoding import _captured_context
 from ddtrace.debugging._encoding import format_message
 from ddtrace.debugging._probe.model import CaptureLimits
-from ddtrace.debugging._probe.model import LineProbe
+from ddtrace.debugging._probe.model import SnapshotLineProbe
 from ddtrace.internal._encoding import BufferFull
 from ddtrace.internal.compat import PY2
 from ddtrace.internal.compat import PY3
@@ -217,7 +217,7 @@ def test_captured_context_exc():
 
 def test_batch_json_encoder():
     s = Snapshot(
-        probe=LineProbe(probe_id="batch-test", source_file="foo.py", line=42),
+        probe=SnapshotLineProbe.create(probe_id="batch-test", source_file="foo.py", line=42),
         frame=inspect.currentframe(),
         thread=threading.current_thread(),
     )
@@ -255,7 +255,7 @@ def test_batch_json_encoder():
 
 def test_batch_flush_reencode():
     s = Snapshot(
-        probe=LineProbe(probe_id="batch-test", source_file="foo.py", line=42),
+        probe=SnapshotLineProbe.create(probe_id="batch-test", source_file="foo.py", line=42),
         frame=inspect.currentframe(),
         thread=threading.current_thread(),
     )

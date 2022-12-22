@@ -19,8 +19,8 @@ from ddtrace.debugging._capture.log_message import LogMessage
 from ddtrace.debugging._capture.snapshot import Snapshot
 from ddtrace.debugging._capture.snapshot import _captured_context
 from ddtrace.debugging._config import config
-from ddtrace.debugging._probe.model import FunctionProbe
-from ddtrace.debugging._probe.model import LineProbe
+from ddtrace.debugging._probe.model import FunctionLocationDetails
+from ddtrace.debugging._probe.model import LineLocationDetails
 from ddtrace.internal import forksafe
 from ddtrace.internal._encoding import BufferFull
 from ddtrace.internal.logger import get_logger
@@ -102,7 +102,7 @@ def _snapshot_v2(snapshot):
         "entry": snapshot.entry_capture or _EMPTY_CAPTURED_CONTEXT,
         "return": snapshot.return_capture or _EMPTY_CAPTURED_CONTEXT,
     }
-    if isinstance(probe, LineProbe):
+    if isinstance(probe, LineLocationDetails):
         captures["lines"] = {
             probe.line: snapshot.line_capture or _EMPTY_CAPTURED_CONTEXT,
         }
@@ -110,7 +110,7 @@ def _snapshot_v2(snapshot):
             "file": probe.source_file,
             "lines": [probe.line],
         }
-    elif isinstance(probe, FunctionProbe):
+    elif isinstance(probe, FunctionLocationDetails):
         location = {
             "type": probe.module,
             "method": probe.func_qname,
@@ -191,13 +191,16 @@ def logs_track_upload_snapshot_request_v2(
     # type: (...) -> Dict[str, Any]
     snapshot_data = _snapshot_v2(snapshot)
     top_frame = snapshot_data["stack"][0]
-    if isinstance(snapshot.probe, LineProbe):
+    if isinstance(snapshot.probe, LineLocationDetails):
         arguments = list(snapshot_data["captures"]["lines"].values())[0]["arguments"]
         message = format_message(top_frame["function"], arguments)
-    elif isinstance(snapshot.probe, FunctionProbe):
+    elif isinstance(snapshot.probe, FunctionLocationDetails):
         arguments = snapshot_data["captures"]["entry"]["arguments"]
         retval = snapshot.return_capture["locals"].get("@return") if snapshot.return_capture else None
         message = format_message(cast(str, snapshot.probe.func_qname), arguments, retval)
+    else:
+        message = "snapshot event"
+
     context = snapshot.context
     payload = {
         "service": service,
@@ -221,16 +224,18 @@ def log_track_upload_log_message_request_v2(
     host,  # type: Optional[str]
 ):
     probe = log_msg.probe
-    if isinstance(probe, LineProbe):
+    if isinstance(probe, LineLocationDetails):
         location = {
             "file": probe.source_file,
             "lines": [probe.line],
-        }
-    elif isinstance(probe, FunctionProbe):
+        }  # type: Dict
+    elif isinstance(probe, FunctionLocationDetails):
         location = {
             "type": probe.module,
             "method": probe.func_qname,
         }
+    else:
+        location = {}
 
     snapshot_data = {
         "id": log_msg.event_id,
