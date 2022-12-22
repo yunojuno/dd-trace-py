@@ -9,7 +9,7 @@ import attr
 from ddtrace.debugging._capture.model import CaptureState
 from ddtrace.debugging._capture.model import CapturedEvent
 from ddtrace.debugging._capture.model import EvaluationError
-from ddtrace.debugging._capture.safe_getter import serialize
+from ddtrace.debugging._capture.utils import serialize
 from ddtrace.debugging._probe.model import ExpressionEvaluationError
 from ddtrace.debugging._probe.model import FunctionLocationMixin
 from ddtrace.debugging._probe.model import LiteralTemplateSegment

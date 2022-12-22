@@ -14,7 +14,7 @@ from typing import cast
 
 import six
 
-from ddtrace.debugging._capture import safe_getter
+from ddtrace.debugging._capture import utils
 from ddtrace.debugging._capture.log_message import LogMessage
 from ddtrace.debugging._capture.model import CapturedEvent
 from ddtrace.debugging._capture.snapshot import Snapshot
@@ -129,7 +129,7 @@ def _snapshot_data(snapshot):
         "id": snapshot.event_id,
         "timestamp": int(snapshot.timestamp * 1e3),  # milliseconds
         "duration": snapshot.duration,  # nanoseconds
-        "stack": safe_getter.capture_stack(frame),
+        "stack": utils.capture_stack(frame),
         "evaluationErrors": [{"expr": e.expr, "message": e.message} for e in snapshot.errors],
         "captures": captures,
         "probe": _probe_details(snapshot.probe),

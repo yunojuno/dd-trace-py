@@ -15,10 +15,10 @@ from typing import Union
 import attr
 import six
 
-from ddtrace.debugging._capture.safe_getter import MAXFIELDS
-from ddtrace.debugging._capture.safe_getter import MAXLEN
-from ddtrace.debugging._capture.safe_getter import MAXLEVEL
-from ddtrace.debugging._capture.safe_getter import MAXSIZE
+from ddtrace.debugging._capture.utils import MAXFIELDS
+from ddtrace.debugging._capture.utils import MAXLEN
+from ddtrace.debugging._capture.utils import MAXLEVEL
+from ddtrace.debugging._capture.utils import MAXSIZE
 from ddtrace.internal.logger import get_logger
 from ddtrace.internal.module import _resolve
 from ddtrace.internal.rate_limiter import BudgetRateLimiterWithJitter as RateLimiter

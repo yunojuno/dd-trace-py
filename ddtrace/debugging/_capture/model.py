@@ -14,7 +14,7 @@ import attr
 import six
 
 from ddtrace.context import Context
-from ddtrace.debugging._capture import safe_getter
+from ddtrace.debugging import safety
 from ddtrace.debugging._probe.model import ExpressionEvaluationError
 from ddtrace.debugging._probe.model import Probe
 from ddtrace.debugging._probe.model import ProbeConditionMixin
@@ -74,7 +74,7 @@ class CapturedEvent(six.with_metaclass(abc.ABCMeta)):
         return False
 
     def _enrich_args(self, retval, exc_info, duration):
-        _locals = list(self.args or safe_getter.get_args(self.frame))
+        _locals = list(self.args or safety.get_args(self.frame))
         _locals.append(("@duration", duration))
         if exc_info[1] is None:
             _locals.append(("@return", retval))

@@ -4,7 +4,7 @@ import time
 from typing import Optional
 from typing import Tuple
 
-from ddtrace.debugging._capture import safe_getter
+from ddtrace.debugging._capture import utils
 from ddtrace.debugging._config import config
 from ddtrace.debugging._encoding import BufferFull
 from ddtrace.debugging._encoding import BufferedEncoder
@@ -49,7 +49,7 @@ class ProbeStatusLogger(object):
             payload["debugger"]["diagnostics"]["exception"] = {  # type: ignore[index]
                 "type": exc_type.__name__,
                 "message": str(exc),
-                "stacktrace": safe_getter.capture_stack(tb.tb_frame),
+                "stacktrace": utils.capture_stack(tb.tb_frame),
             }
 
         return json.dumps(payload)

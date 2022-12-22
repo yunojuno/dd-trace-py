@@ -7,7 +7,8 @@ from typing import cast
 
 import attr
 
-from ddtrace.debugging._capture import safe_getter
+from ddtrace.debugging import safety
+from ddtrace.debugging._capture import utils
 from ddtrace.debugging._capture.model import CaptureState
 from ddtrace.debugging._capture.model import CapturedEvent
 from ddtrace.debugging._probe.model import CaptureLimits
@@ -27,18 +28,18 @@ def _captured_context(
     # type: (...) -> Dict[str, Any]
     return {
         "arguments": {
-            n: safe_getter.capture_value(v, limits.max_level, limits.max_len, limits.max_size, limits.max_fields)
+            n: utils.capture_value(v, limits.max_level, limits.max_len, limits.max_size, limits.max_fields)
             for n, v in arguments
         }
         if arguments is not None
         else {},
         "locals": {
-            n: safe_getter.capture_value(v, limits.max_level, limits.max_len, limits.max_size, limits.max_fields)
+            n: utils.capture_value(v, limits.max_level, limits.max_len, limits.max_size, limits.max_fields)
             for n, v in _locals
         }
         if _locals is not None
         else {},
-        "throwable": safe_getter.capture_exc_info(throwable),
+        "throwable": utils.capture_exc_info(throwable),
     }
 
 
@@ -58,7 +59,7 @@ class Snapshot(CapturedEvent):
     def enter(self):
         frame = self.frame
         probe = cast(SnapshotFunctionProbe, self.probe)
-        _args = list(self.args or safe_getter.get_args(frame))
+        _args = list(self.args or safety.get_args(frame))
 
         if probe.evaluate_at == ProbeEvaluateTimingForMethod.EXIT:
             return
@@ -95,7 +96,7 @@ class Snapshot(CapturedEvent):
             _locals.append(("@return", retval))
 
         self.return_capture = _captured_context(
-            self.args or safe_getter.get_args(self.frame), _locals, exc_info, limits=probe.limits
+            self.args or safety.get_args(self.frame), _locals, exc_info, limits=probe.limits
         )
         self.duration = duration
         self.state = CaptureState.DONE_AND_COMMIT
@@ -112,8 +113,8 @@ class Snapshot(CapturedEvent):
             return
 
         self.line_capture = _captured_context(
-            self.args or safe_getter.get_args(frame),
-            _locals or safe_getter.get_locals(frame),
+            self.args or safety.get_args(frame),
+            _locals or safety.get_locals(frame),
             exc_info,
             limits=probe.limits,
         )
