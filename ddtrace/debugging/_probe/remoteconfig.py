@@ -12,9 +12,9 @@ from ddtrace import config as tracer_config
 from ddtrace.debugging._config import config
 from ddtrace.debugging._expressions import dd_compile
 from ddtrace.debugging._probe.model import CaptureLimits
-from ddtrace.debugging._probe.model import ConstTemplateSegment
 from ddtrace.debugging._probe.model import DslExpression
 from ddtrace.debugging._probe.model import ExpressionTemplateSegment
+from ddtrace.debugging._probe.model import LiteralTemplateSegment
 from ddtrace.debugging._probe.model import LogFunctionProbe
 from ddtrace.debugging._probe.model import LogLineProbe
 from ddtrace.debugging._probe.model import MetricFunctionProbe
@@ -74,7 +74,7 @@ def _compile_expression(when):
 
 def _compile_segment(segment):
     if segment.get("str", ""):
-        return ConstTemplateSegment(str=segment["str"])
+        return LiteralTemplateSegment(str=segment["str"])
     elif segment.get("json", None) is not None:
         return ExpressionTemplateSegment(expr=_compile_expression(segment))
 
@@ -129,7 +129,7 @@ def probe(_id, _type, attribs):
             active=attribs["active"],
             tags=dict(_.split(":", 1) for _ in attribs.get("tags", [])),
             rate=1.0,
-            capture=CaptureLimits(**attribs.get("capture", None)) if attribs.get("capture", None) else None,
+            limits=CaptureLimits(**attribs.get("capture", None)) if attribs.get("capture", None) else None,
         )
 
         return _create_probe_based_on_location(args, attribs, SnapshotLineProbe, SnapshotFunctionProbe)
@@ -154,7 +154,7 @@ def probe(_id, _type, attribs):
             condition=_compile_expression(attribs.get("when")),
             active=attribs["active"],
             tags=dict(_.split(":", 1) for _ in attribs.get("tags", [])),
-            capture=CaptureLimits(**attribs.get("capture", None)) if attribs.get("capture", None) else None,
+            limits=CaptureLimits(**attribs.get("capture", None)) if attribs.get("capture", None) else None,
             rate=1.0,  # TODO: should we take rate limit out of Probe?
             template=attribs["template"],
             segments=[_compile_segment(segment) for segment in attribs.get("segments", [])],

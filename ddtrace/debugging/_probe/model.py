@@ -118,7 +118,7 @@ def create_probe_defaults(f):
 
 
 @attr.s
-class ProbeConditionDetails(six.with_metaclass(abc.ABCMeta)):
+class ProbeConditionMixin(object):
     """Conditional probe.
 
     If the condition is ``None``, then this is equivalent to a non-conditional
@@ -137,7 +137,7 @@ def probe_conditional_defaults(f):
 
 
 @attr.s
-class LineLocationDetails(six.with_metaclass(abc.ABCMeta)):
+class LineLocationMixin(object):
     source_file = attr.ib(type=Optional[str], converter=_resolve_source_file)  # type: ignore[misc]
     line = attr.ib(type=Optional[int])
 
@@ -150,7 +150,7 @@ class ProbeEvaluateTimingForMethod(object):
 
 
 @attr.s
-class FunctionLocationDetails(six.with_metaclass(abc.ABCMeta)):
+class FunctionLocationMixin(object):
     module = attr.ib(type=Optional[str])
     func_qname = attr.ib(type=Optional[str])
     evaluate_at = attr.ib(type=Optional[ProbeEvaluateTimingForMethod])
@@ -173,7 +173,7 @@ class MetricProbeKind(object):
 
 
 @attr.s
-class MetricProbeDetails(six.with_metaclass(abc.ABCMeta)):
+class MetricProbeMixin(object):
     kind = attr.ib(type=Optional[str])
     name = attr.ib(type=Optional[str])
     value = attr.ib(type=Optional[Callable[[Dict[str, Any]], Any]])
@@ -188,7 +188,7 @@ def metric_probe_defaults(f):
 
 
 @attr.s
-class MetricLineProbe(Probe, ProbeConditionDetails, LineLocationDetails, MetricProbeDetails):
+class MetricLineProbe(Probe, ProbeConditionMixin, LineLocationMixin, MetricProbeMixin):
     @classmethod
     @create_probe_defaults
     @probe_conditional_defaults
@@ -198,7 +198,7 @@ class MetricLineProbe(Probe, ProbeConditionDetails, LineLocationDetails, MetricP
 
 
 @attr.s
-class MetricFunctionProbe(Probe, ProbeConditionDetails, FunctionLocationDetails, MetricProbeDetails):
+class MetricFunctionProbe(Probe, ProbeConditionMixin, FunctionLocationMixin, MetricProbeMixin):
     @classmethod
     @create_probe_defaults
     @probe_conditional_defaults
@@ -217,7 +217,7 @@ class TemplateSegment(six.with_metaclass(abc.ABCMeta)):
 
 
 @attr.s
-class ConstTemplateSegment(TemplateSegment):
+class LiteralTemplateSegment(TemplateSegment):
     str_value = attr.ib(type=str, default=None)
 
     def eval(self, _locals):
@@ -235,20 +235,20 @@ class ExpressionTemplateSegment(TemplateSegment):
 
 
 @attr.s
-class SnapshotProbeDetails(six.with_metaclass(abc.ABCMeta)):
-    capture = attr.ib(type=CaptureLimits, eq=False)  # type: CaptureLimits
+class SnapshotProbeMixin(object):
+    limits = attr.ib(type=CaptureLimits, eq=False)  # type: CaptureLimits
 
 
 def snapshot_probe_defaults(f):
     def _wrapper(*args, **kwargs):
-        kwargs.setdefault("capture", CaptureLimits())
+        kwargs.setdefault("limits", CaptureLimits())
         return f(*args, **kwargs)
 
     return _wrapper
 
 
 @attr.s
-class SnapshotLineProbe(Probe, ProbeConditionDetails, LineLocationDetails, SnapshotProbeDetails):
+class SnapshotLineProbe(Probe, ProbeConditionMixin, LineLocationMixin, SnapshotProbeMixin):
     @classmethod
     @create_probe_defaults
     @probe_conditional_defaults
@@ -258,7 +258,7 @@ class SnapshotLineProbe(Probe, ProbeConditionDetails, LineLocationDetails, Snaps
 
 
 @attr.s
-class SnapshotFunctionProbe(Probe, ProbeConditionDetails, FunctionLocationDetails, SnapshotProbeDetails):
+class SnapshotFunctionProbe(Probe, ProbeConditionMixin, FunctionLocationMixin, SnapshotProbeMixin):
     @classmethod
     @create_probe_defaults
     @probe_conditional_defaults
@@ -269,13 +269,13 @@ class SnapshotFunctionProbe(Probe, ProbeConditionDetails, FunctionLocationDetail
 
 
 @attr.s
-class LogProbeDetails(six.with_metaclass(abc.ABCMeta)):
+class LogProbeMixin(object):
     template = attr.ib(type=Optional[str])
     segments = attr.ib(type=Optional[List[TemplateSegment]])
 
 
 @attr.s
-class LogLineProbe(Probe, ProbeConditionDetails, LineLocationDetails, LogProbeDetails, SnapshotProbeDetails):
+class LogLineProbe(Probe, ProbeConditionMixin, LineLocationMixin, LogProbeMixin, SnapshotProbeMixin):
     @classmethod
     @create_probe_defaults
     @probe_conditional_defaults
@@ -285,7 +285,7 @@ class LogLineProbe(Probe, ProbeConditionDetails, LineLocationDetails, LogProbeDe
 
 
 @attr.s
-class LogFunctionProbe(Probe, ProbeConditionDetails, FunctionLocationDetails, LogProbeDetails, SnapshotProbeDetails):
+class LogFunctionProbe(Probe, ProbeConditionMixin, FunctionLocationMixin, LogProbeMixin, SnapshotProbeMixin):
     @classmethod
     @create_probe_defaults
     @probe_conditional_defaults

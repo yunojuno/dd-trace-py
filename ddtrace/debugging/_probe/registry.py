@@ -4,8 +4,8 @@ from typing import Dict
 from typing import List
 from typing import Optional
 
-from ddtrace.debugging._probe.model import FunctionLocationDetails
-from ddtrace.debugging._probe.model import LineLocationDetails
+from ddtrace.debugging._probe.model import FunctionLocationMixin
+from ddtrace.debugging._probe.model import LineLocationMixin
 from ddtrace.debugging._probe.model import Probe
 from ddtrace.debugging._probe.status import ProbeStatusLogger
 from ddtrace.internal import forksafe
@@ -50,9 +50,9 @@ class ProbeRegistryEntry(object):
 
 def _get_probe_location(probe):
     # type: (Probe) -> Optional[str]
-    if isinstance(probe, LineLocationDetails):
+    if isinstance(probe, LineLocationMixin):
         return probe.source_file
-    elif isinstance(probe, FunctionLocationDetails):
+    elif isinstance(probe, FunctionLocationMixin):
         return probe.module
     else:
         raise ValueError("Unsupported probe type: {}".format(type(probe)))

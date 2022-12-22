@@ -17,7 +17,7 @@ from ddtrace.context import Context
 from ddtrace.debugging._capture import safe_getter
 from ddtrace.debugging._probe.model import ExpressionEvaluationError
 from ddtrace.debugging._probe.model import Probe
-from ddtrace.debugging._probe.model import ProbeConditionDetails
+from ddtrace.debugging._probe.model import ProbeConditionMixin
 
 
 @attr.s
@@ -57,7 +57,7 @@ class CapturedEvent(six.with_metaclass(abc.ABCMeta)):
     def _evalCondition(self, _locals=None):
         # type: (Optional[Dict[str, Any]]) -> bool
         """Evaluate the probe condition against the collected frame."""
-        probe = cast(ProbeConditionDetails, self.probe)
+        probe = cast(ProbeConditionMixin, self.probe)
         condition = probe.condition
         if condition is None:
             return True

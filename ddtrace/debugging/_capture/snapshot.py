@@ -74,7 +74,7 @@ class Snapshot(CapturedEvent):
             _args,
             [],
             (None, None, None),
-            limits=probe.capture,
+            limits=probe.limits,
         )
 
     def exit(self, retval, exc_info, duration):
@@ -95,7 +95,7 @@ class Snapshot(CapturedEvent):
             _locals.append(("@return", retval))
 
         self.return_capture = _captured_context(
-            self.args or safe_getter.get_args(self.frame), _locals, exc_info, limits=probe.capture
+            self.args or safe_getter.get_args(self.frame), _locals, exc_info, limits=probe.limits
         )
         self.duration = duration
         self.state = CaptureState.DONE_AND_COMMIT
@@ -115,6 +115,6 @@ class Snapshot(CapturedEvent):
             self.args or safe_getter.get_args(frame),
             _locals or safe_getter.get_locals(frame),
             exc_info,
-            limits=probe.capture,
+            limits=probe.limits,
         )
         self.state = CaptureState.DONE_AND_COMMIT

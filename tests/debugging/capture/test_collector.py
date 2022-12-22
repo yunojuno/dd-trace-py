@@ -23,7 +23,7 @@ class MockProbe(object):
     probe_id = attr.ib(type=str)
     condition = attr.ib(type=Optional[DslExpression])
     limiter = attr.ib(factory=MockLimiter)
-    capture = CaptureLimits()
+    limits = CaptureLimits()
 
 
 @attr.s

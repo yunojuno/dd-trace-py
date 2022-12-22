@@ -7,8 +7,8 @@ from ddtrace.debugging._capture.model import CaptureState
 from ddtrace.debugging._capture.model import CapturedEvent
 from ddtrace.debugging._metrics import probe_metrics
 from ddtrace.debugging._probe.model import MetricFunctionProbe
-from ddtrace.debugging._probe.model import MetricProbeDetails
 from ddtrace.debugging._probe.model import MetricProbeKind
+from ddtrace.debugging._probe.model import MetricProbeMixin
 from ddtrace.debugging._probe.model import ProbeEvaluateTimingForMethod
 from ddtrace.internal.metrics import Metrics
 
@@ -56,7 +56,7 @@ class MetricSample(CapturedEvent):
         self.state = CaptureState.DONE
 
     def sample(self, _locals):
-        probe = cast(MetricProbeDetails, self.probe)
+        probe = cast(MetricProbeMixin, self.probe)
 
         assert probe.kind is not None and probe.name is not None
 

@@ -20,8 +20,8 @@ from ddtrace.debugging._capture.model import CapturedEvent
 from ddtrace.debugging._capture.snapshot import Snapshot
 from ddtrace.debugging._capture.snapshot import _captured_context
 from ddtrace.debugging._config import config
-from ddtrace.debugging._probe.model import FunctionLocationDetails
-from ddtrace.debugging._probe.model import LineLocationDetails
+from ddtrace.debugging._probe.model import FunctionLocationMixin
+from ddtrace.debugging._probe.model import LineLocationMixin
 from ddtrace.internal import forksafe
 from ddtrace.internal._encoding import BufferFull
 from ddtrace.internal.logger import get_logger
@@ -96,12 +96,12 @@ _EMPTY_CAPTURED_CONTEXT = _captured_context([], [], (None, None, None))
 
 def _probe_details(probe):
     # type (Probe) -> Dict[str, Any]
-    if isinstance(probe, LineLocationDetails):
+    if isinstance(probe, LineLocationMixin):
         location = {
             "file": probe.source_file,
             "lines": [probe.line],
         }
-    elif isinstance(probe, FunctionLocationDetails):
+    elif isinstance(probe, FunctionLocationMixin):
         location = {
             "type": probe.module,
             "method": probe.func_qname,
@@ -121,7 +121,7 @@ def _snapshot_data(snapshot):
         "entry": snapshot.entry_capture or _EMPTY_CAPTURED_CONTEXT,
         "return": snapshot.return_capture or _EMPTY_CAPTURED_CONTEXT,
     }
-    if isinstance(probe, LineLocationDetails):
+    if isinstance(probe, LineLocationMixin):
         captures["lines"] = {
             probe.line: snapshot.line_capture or _EMPTY_CAPTURED_CONTEXT,
         }
@@ -194,10 +194,10 @@ def format_message(function, args, retval=None):
 def snapshot_message(snapshot, snapshot_data):
     # type: (Snapshot, Dict[str,Any]) -> str
     top_frame = snapshot_data["stack"][0]
-    if isinstance(snapshot.probe, LineLocationDetails):
+    if isinstance(snapshot.probe, LineLocationMixin):
         arguments = list(snapshot_data["captures"]["lines"].values())[0]["arguments"]
         return format_message(top_frame["function"], arguments)
-    if isinstance(snapshot.probe, FunctionLocationDetails):
+    if isinstance(snapshot.probe, FunctionLocationMixin):
         arguments = snapshot_data["captures"]["entry"]["arguments"]
         retval = snapshot.return_capture["locals"].get("@return") if snapshot.return_capture else None
         return format_message(cast(str, snapshot.probe.func_qname), arguments, retval)

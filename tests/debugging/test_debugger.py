@@ -8,9 +8,9 @@ from mock.mock import call
 import pytest
 
 from ddtrace.debugging._expressions import dd_compile
-from ddtrace.debugging._probe.model import ConstTemplateSegment
 from ddtrace.debugging._probe.model import DslExpression
 from ddtrace.debugging._probe.model import ExpressionTemplateSegment
+from ddtrace.debugging._probe.model import LiteralTemplateSegment
 from ddtrace.debugging._probe.model import LogLineProbe
 from ddtrace.debugging._probe.model import MetricLineProbe
 from ddtrace.debugging._probe.model import MetricProbeKind
@@ -847,11 +847,11 @@ def test_debugger_log_live_probe_generate_messages():
                 line=36,
                 template="hello world {^foo} {#bar}!",
                 segments=[
-                    ConstTemplateSegment("hello world "),
+                    LiteralTemplateSegment("hello world "),
                     ExpressionTemplateSegment(DslExpression(dsl="^foo", callable=dd_compile("^foo"))),
-                    ConstTemplateSegment(" "),
+                    LiteralTemplateSegment(" "),
                     ExpressionTemplateSegment(DslExpression(dsl="#bar", callable=dd_compile("#bar"))),
-                    ConstTemplateSegment("!"),
+                    LiteralTemplateSegment("!"),
                 ],
             ),
         )

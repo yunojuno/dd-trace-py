@@ -10,11 +10,11 @@ from ddtrace.debugging._capture.model import CaptureState
 from ddtrace.debugging._capture.model import CapturedEvent
 from ddtrace.debugging._capture.model import EvaluationError
 from ddtrace.debugging._capture.safe_getter import serialize
-from ddtrace.debugging._probe.model import ConstTemplateSegment
 from ddtrace.debugging._probe.model import ExpressionEvaluationError
-from ddtrace.debugging._probe.model import FunctionLocationDetails
+from ddtrace.debugging._probe.model import FunctionLocationMixin
+from ddtrace.debugging._probe.model import LiteralTemplateSegment
 from ddtrace.debugging._probe.model import ProbeEvaluateTimingForMethod
-from ddtrace.debugging._probe.model import SnapshotProbeDetails
+from ddtrace.debugging._probe.model import SnapshotProbeMixin
 from ddtrace.debugging._probe.model import TemplateSegment
 
 
@@ -31,10 +31,10 @@ class LogMessage(CapturedEvent):
 
     def _eval_segment(self, segment, _locals):
         # type: (TemplateSegment, Dict[str, Any]) -> str
-        probe = cast(SnapshotProbeDetails, self.probe)
-        capture = probe.capture
+        probe = cast(SnapshotProbeMixin, self.probe)
+        capture = probe.limits
         try:
-            if isinstance(segment, ConstTemplateSegment):
+            if isinstance(segment, LiteralTemplateSegment):
                 return segment.eval(_locals)
             return serialize(
                 segment.eval(_locals),
@@ -48,7 +48,7 @@ class LogMessage(CapturedEvent):
             return "ERROR"
 
     def enter(self):
-        probe = cast(FunctionLocationDetails, self.probe)
+        probe = cast(FunctionLocationMixin, self.probe)
 
         if probe.evaluate_at == ProbeEvaluateTimingForMethod.EXIT:
             return
@@ -61,7 +61,7 @@ class LogMessage(CapturedEvent):
         self.state = CaptureState.DONE_AND_COMMIT
 
     def exit(self, retval, exc_info, duration):
-        probe = cast(FunctionLocationDetails, self.probe)
+        probe = cast(FunctionLocationMixin, self.probe)
         _args = self._enrich_args(retval, exc_info, duration)
 
         if probe.evaluate_at != ProbeEvaluateTimingForMethod.EXIT:

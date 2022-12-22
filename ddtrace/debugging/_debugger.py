@@ -31,9 +31,9 @@ from ddtrace.debugging._function.discovery import FunctionDiscovery
 from ddtrace.debugging._function.store import FullyNamedWrappedFunction
 from ddtrace.debugging._function.store import FunctionStore
 from ddtrace.debugging._metrics import metrics
-from ddtrace.debugging._probe.model import FunctionLocationDetails
+from ddtrace.debugging._probe.model import FunctionLocationMixin
 from ddtrace.debugging._probe.model import FunctionProbes
-from ddtrace.debugging._probe.model import LineLocationDetails
+from ddtrace.debugging._probe.model import LineLocationMixin
 from ddtrace.debugging._probe.model import LineProbes
 from ddtrace.debugging._probe.model import LogFunctionProbe
 from ddtrace.debugging._probe.model import LogLineProbe
@@ -395,7 +395,7 @@ class Debugger(Service):
         # bulk-inject the probes.
         probes_for_function = defaultdict(list)  # type: Dict[FullyNamedWrappedFunction, List[LineProbes]]
         for probe in self._probe_registry.get_pending(origin(module)):
-            if not isinstance(probe, LineLocationDetails):
+            if not isinstance(probe, LineLocationMixin):
                 continue
             line = probe.line
             assert line is not None
@@ -482,7 +482,7 @@ class Debugger(Service):
                 # The module is still loaded, so we can try to eject the hooks
                 probes_for_function = defaultdict(list)  # type: Dict[FullyNamedWrappedFunction, List[LineProbes]]
                 for probe in probes:
-                    if not isinstance(probe, LineLocationDetails):
+                    if not isinstance(probe, LineLocationMixin):
                         continue
                     line = probe.line
                     assert line is not None, probe
@@ -512,7 +512,7 @@ class Debugger(Service):
         # type: (ModuleType) -> None
         probes = self._probe_registry.get_pending(module.__name__)
         for probe in probes:
-            if not isinstance(probe, FunctionLocationDetails):
+            if not isinstance(probe, FunctionLocationMixin):
                 continue
 
             assert probe.module == module.__name__, "Imported module name matches probe definition"
@@ -626,9 +626,9 @@ class Debugger(Service):
         line_probes = []  # type: List[LineProbes]
         function_probes = []  # type: List[FunctionProbes]
         for probe in probes:
-            if isinstance(probe, LineLocationDetails):
+            if isinstance(probe, LineLocationMixin):
                 line_probes.append(cast(LineProbes, probe))
-            elif isinstance(probe, FunctionLocationDetails):
+            elif isinstance(probe, FunctionLocationMixin):
                 function_probes.append(cast(FunctionProbes, probe))
             else:
                 log.warning("Skipping probe '%r': not supported.", probe)
