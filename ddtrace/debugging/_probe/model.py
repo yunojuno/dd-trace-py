@@ -28,13 +28,6 @@ from ddtrace.internal.utils.cache import cached
 log = get_logger(__name__)
 
 
-def _with_defaults(f, **defaults):
-    def _wrapper(*args, **kwargs):
-        return f(*args, **defaults, **kwargs)
-
-    return _wrapper
-
-
 @cached()
 def _resolve_source_file(path):
     # type: (str) -> Optional[str]

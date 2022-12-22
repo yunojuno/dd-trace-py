@@ -16,6 +16,7 @@ import six
 
 from ddtrace.debugging._capture import safe_getter
 from ddtrace.debugging._capture.log_message import LogMessage
+from ddtrace.debugging._capture.model import CapturedEvent
 from ddtrace.debugging._capture.snapshot import Snapshot
 from ddtrace.debugging._capture.snapshot import _captured_context
 from ddtrace.debugging._config import config
@@ -93,7 +94,25 @@ class BufferedEncoder(six.with_metaclass(abc.ABCMeta)):
 _EMPTY_CAPTURED_CONTEXT = _captured_context([], [], (None, None, None))
 
 
-def _snapshot_v2(snapshot):
+def _probe_details(probe):
+    # type (Probe) -> Dict[str, Any]
+    if isinstance(probe, LineLocationDetails):
+        location = {
+            "file": probe.source_file,
+            "lines": [probe.line],
+        }
+    elif isinstance(probe, FunctionLocationDetails):
+        location = {
+            "type": probe.module,
+            "method": probe.func_qname,
+        }
+    return {
+        "id": probe.probe_id,
+        "location": location,
+    }
+
+
+def _snapshot_data(snapshot):
     # type (Snapshot) -> Dict[str, Any]
     frame = snapshot.frame
     probe = snapshot.probe
@@ -106,30 +125,19 @@ def _snapshot_v2(snapshot):
         captures["lines"] = {
             probe.line: snapshot.line_capture or _EMPTY_CAPTURED_CONTEXT,
         }
-        location = {
-            "file": probe.source_file,
-            "lines": [probe.line],
-        }
-    elif isinstance(probe, FunctionLocationDetails):
-        location = {
-            "type": probe.module,
-            "method": probe.func_qname,
-        }
     return {
         "id": snapshot.event_id,
         "timestamp": int(snapshot.timestamp * 1e3),  # milliseconds
         "duration": snapshot.duration,  # nanoseconds
         "stack": safe_getter.capture_stack(frame),
+        "evaluationErrors": [{"expr": e.expr, "message": e.message} for e in snapshot.errors],
         "captures": captures,
-        "probe": {
-            "id": probe.probe_id,
-            "location": location,
-        },
+        "probe": _probe_details(snapshot.probe),
         "language": "python",
     }
 
 
-def _logger_v2(thread, frame):
+def _logs_track_logger_details(thread, frame):
     # type: (Thread, FrameType) -> Dict[str, Any]
     code = frame.f_code
 
@@ -183,86 +191,83 @@ def format_message(function, args, retval=None):
     return message
 
 
-def logs_track_upload_snapshot_request_v2(
+def snapshot_message(snapshot, snapshot_data):
+    # type: (Snapshot, Dict[str,Any]) -> str
+    top_frame = snapshot_data["stack"][0]
+    if isinstance(snapshot.probe, LineLocationDetails):
+        arguments = list(snapshot_data["captures"]["lines"].values())[0]["arguments"]
+        return format_message(top_frame["function"], arguments)
+    if isinstance(snapshot.probe, FunctionLocationDetails):
+        arguments = snapshot_data["captures"]["entry"]["arguments"]
+        retval = snapshot.return_capture["locals"].get("@return") if snapshot.return_capture else None
+        return format_message(cast(str, snapshot.probe.func_qname), arguments, retval)
+    return "snapshot " + snapshot.event_id
+
+
+def _build_log_track_payload(
+    service,  # type: str
+    event,  # type: CapturedEvent
+    message,  # type: str
+    snapshot_data,  # type: Dict[str,Any]
+    host,  # type: Optional[str]
+):
+    # type: (...) -> Dict[str, Any]
+    context = event.context
+
+    payload = {
+        "service": service,
+        "debugger.snapshot": snapshot_data,
+        "host": host,
+        "logger": _logs_track_logger_details(event.thread, event.frame),
+        "dd.trace_id": context.trace_id if context else None,
+        "dd.span_id": context.span_id if context else None,
+        "ddsource": "dd_debugger",
+        "message": message,
+        "timestamp": int(event.timestamp * 1e3),  # milliseconds,
+    }
+    add_tags(payload)
+    print(payload)
+    return payload
+
+
+def logs_track_upload_snapshot_request(
     service,  # type: str
     snapshot,  # type: Snapshot
     host,  # type: Optional[str]
 ):
     # type: (...) -> Dict[str, Any]
-    snapshot_data = _snapshot_v2(snapshot)
-    top_frame = snapshot_data["stack"][0]
-    if isinstance(snapshot.probe, LineLocationDetails):
-        arguments = list(snapshot_data["captures"]["lines"].values())[0]["arguments"]
-        message = format_message(top_frame["function"], arguments)
-    elif isinstance(snapshot.probe, FunctionLocationDetails):
-        arguments = snapshot_data["captures"]["entry"]["arguments"]
-        retval = snapshot.return_capture["locals"].get("@return") if snapshot.return_capture else None
-        message = format_message(cast(str, snapshot.probe.func_qname), arguments, retval)
-    else:
-        message = "snapshot event"
+    snapshot_data = _snapshot_data(snapshot)
+    message = snapshot_message(snapshot, snapshot_data)
 
-    context = snapshot.context
-    payload = {
-        "service": service,
-        "debugger.snapshot": snapshot_data,
-        "host": host,
-        "logger": _logger_v2(snapshot.thread, snapshot.frame),
-        "dd.trace_id": context.trace_id if context else None,
-        "dd.span_id": context.span_id if context else None,
-        "ddsource": "dd_debugger",
-        "message": message,
-        "timestamp": snapshot_data["timestamp"],
-    }
-    add_tags(payload)
-
-    return payload
+    return _build_log_track_payload(
+        service=service,
+        event=snapshot,
+        message=message,
+        snapshot_data=snapshot_data,
+        host=host,
+    )
 
 
-def log_track_upload_log_message_request_v2(
+def log_track_upload_log_message_request(
     service,  # type: str
     log_msg,  # type: LogMessage
     host,  # type: Optional[str]
 ):
-    probe = log_msg.probe
-    if isinstance(probe, LineLocationDetails):
-        location = {
-            "file": probe.source_file,
-            "lines": [probe.line],
-        }  # type: Dict
-    elif isinstance(probe, FunctionLocationDetails):
-        location = {
-            "type": probe.module,
-            "method": probe.func_qname,
-        }
-    else:
-        location = {}
-
     snapshot_data = {
         "id": log_msg.event_id,
-        "probe": {
-            "id": probe.probe_id,
-            "location": location,
-        },
+        "probe": _probe_details(log_msg.probe),
         "evaluationErrors": [{"expr": e.expr, "message": e.message} for e in log_msg.errors],
         "timestamp": int(log_msg.timestamp * 1e3),  # milliseconds
         "language": "python",
     }
 
-    context = log_msg.context
-    payload = {
-        "service": service,
-        "debugger.snapshot": snapshot_data,
-        "host": host,
-        "logger": _logger_v2(log_msg.thread, log_msg.frame),
-        "dd.trace_id": context.trace_id if context else None,
-        "dd.span_id": context.span_id if context else None,
-        "ddsource": "dd_debugger",
-        "message": log_msg.message,
-        "timestamp": snapshot_data["timestamp"],
-    }
-    add_tags(payload)
-
-    return payload
+    return _build_log_track_payload(
+        service=service,
+        event=log_msg,
+        message=cast(str, log_msg.message),
+        snapshot_data=snapshot_data,
+        host=host,
+    )
 
 
 class SnapshotJsonEncoder(Encoder):
@@ -274,7 +279,7 @@ class SnapshotJsonEncoder(Encoder):
     def encode(self, snapshot):
         # type: (Snapshot) -> bytes
         return json.dumps(
-            logs_track_upload_snapshot_request_v2(
+            logs_track_upload_snapshot_request(
                 service=self._service,
                 snapshot=snapshot,
                 host=self._host,
@@ -291,7 +296,7 @@ class LogMessageJsonEncoder(Encoder):
     def encode(self, log_msg):
         # type: (LogMessage) -> bytes
         return json.dumps(
-            log_track_upload_log_message_request_v2(
+            log_track_upload_log_message_request(
                 service=self._service,
                 log_msg=log_msg,
                 host=self._host,

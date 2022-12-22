@@ -627,9 +627,9 @@ class Debugger(Service):
         function_probes = []  # type: List[FunctionProbes]
         for probe in probes:
             if isinstance(probe, LineLocationDetails):
-                line_probes.append(probe)
+                line_probes.append(cast(LineProbes, probe))
             elif isinstance(probe, FunctionLocationDetails):
-                function_probes.append(probe)
+                function_probes.append(cast(FunctionProbes, probe))
             else:
                 log.warning("Skipping probe '%r': not supported.", probe)
 
