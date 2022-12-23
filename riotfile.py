@@ -163,6 +163,7 @@ venv = Venv(
             pkgs={
                 "mypy": latest,
                 "envier": latest,
+                "types-chardet": latest,
                 "types-attrs": latest,
                 "types-docutils": latest,
                 "types-protobuf": latest,

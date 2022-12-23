@@ -21,7 +21,7 @@ _PY37 = sys.version_info >= (3, 7, 0)
 if _PY37:
     from importlib.abc import ResourceReader
 else:
-    ResourceReader = Any
+    ResourceReader = Any  # type: ignore
 
 ModuleCallback = Callable[[ModuleType], None]
 

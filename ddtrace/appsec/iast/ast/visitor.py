@@ -4,8 +4,6 @@ from _ast import ImportFrom
 import ast
 import sys
 from typing import Any
-from typing import Dict
-from typing import Optional
 
 
 PY27_37 = sys.version_info < (3, 8, 0)
@@ -17,7 +15,7 @@ class AstVisitor(ast.NodeTransformer):
         avoid_check_funcs=False,
         filename="",
         module_name="",
-    ):  # type: (Optional[Dict[str, Any]], bool, str, str) -> None
+    ):
 
         # Offset caused by inserted lines. Will be adjusted in visit_Generic
         self._aspects_spec = {
@@ -35,8 +33,8 @@ class AstVisitor(ast.NodeTransformer):
         self.module_name = module_name
 
         # Save import as original names (Scope: file)
-        self.as_names = dict()  # type: Dict[str, str]
-        self._current_function_name = None  # type: Optional[str]
+        self.as_names = dict()
+        self._current_function_name = None
 
         # This will be enabled when we find a module and function where we avoid doing
         # replacements and enabled again on all the others
