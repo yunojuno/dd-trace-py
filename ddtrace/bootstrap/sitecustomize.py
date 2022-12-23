@@ -19,6 +19,7 @@ if os.environ.get("DD_GEVENT_PATCH_ALL", "false").lower() in ("true", "1"):
 
 from ddtrace import config  # noqa
 from ddtrace import constants
+from ddtrace.appsec.iast.import_hooks import initialize_iast_import_hooks
 from ddtrace.debugging._config import config as debugger_config
 from ddtrace.internal.logger import get_logger  # noqa
 from ddtrace.internal.runtime.runtime_metrics import RuntimeWorker
@@ -92,6 +93,9 @@ try:
 
     if asbool(os.getenv("DD_RUNTIME_METRICS_ENABLED")):
         RuntimeWorker.enable()
+
+    if asbool(os.getenv("DD_IAST_ENABLED", default=False)):  # IAST
+        initialize_iast_import_hooks()
 
     opts = {}  # type: Dict[str, Any]
 
