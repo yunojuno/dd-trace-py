@@ -170,6 +170,9 @@ class _ProfilerInstance(service.Service):
         if self._lambda_function_name is not None:
             self.tags.update({"functionname": self._lambda_function_name})
 
+        profiling_span_processor = self.tracer._profiling_span_processor
+        profiling_span_processor.enable()
+
         return [
             http.PprofHTTPExporter(
                 service=self.service,
@@ -180,6 +183,7 @@ class _ProfilerInstance(service.Service):
                 endpoint=endpoint,
                 endpoint_path=endpoint_path,
                 enable_code_provenance=self.enable_code_provenance,
+                profiling_span_processor=profiling_span_processor,
             ),
         ]
 

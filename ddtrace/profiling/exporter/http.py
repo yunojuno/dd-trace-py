@@ -7,6 +7,8 @@ import json
 import os
 import platform
 import typing
+from typing import Any
+from typing import Dict
 
 import attr
 import six
@@ -16,6 +18,7 @@ import tenacity
 import ddtrace
 from ddtrace.internal import agent
 from ddtrace.internal import runtime
+from ddtrace.internal.processor.profiling import ProfilingSpanProcessor
 from ddtrace.internal.runtime import container
 from ddtrace.internal.utils import attr as attr_utils
 from ddtrace.internal.utils.formats import parse_tags_str
@@ -59,6 +62,8 @@ class PprofHTTPExporter(pprof.PprofExporter):
     _container_info = attr.ib(factory=container.get_container_info, repr=False)
     _retry_upload = attr.ib(init=False, eq=False)
     endpoint_path = attr.ib(default="/profiling/v1/input")
+
+    profiling_span_processor = attr.ib(default=None, type=ProfilingSpanProcessor)
 
     def __attrs_post_init__(self):
         if self.max_retry_delay is None:
@@ -202,7 +207,10 @@ class PprofHTTPExporter(pprof.PprofExporter):
             "tags_profiler": self._get_tags(service),
             "start": (datetime.datetime.utcfromtimestamp(start_time_ns / 1e9).replace(microsecond=0).isoformat() + "Z"),
             "end": (datetime.datetime.utcfromtimestamp(end_time_ns / 1e9).replace(microsecond=0).isoformat() + "Z"),
-        }
+        }  # type: Dict[str, Any]
+
+        if self.profiling_span_processor is not None:
+            event["endpoint_counts"] = self.profiling_span_processor.reset()
 
         content_type, body = self._encode_multipart_formdata(
             event=json.dumps(event).encode("utf-8"),
