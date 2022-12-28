@@ -319,7 +319,7 @@ venv = Venv(
                             pkgs={
                                 "gunicorn": latest,
                                 "tenacity": "==5.0.1",
-                                "protobuf": "==3.0.0",
+                                "protobuf": "~=3.0.0",
                                 "gevent": "==1.1.0",
                                 "greenlet": "==0.4.16",
                             },
@@ -356,7 +356,7 @@ venv = Venv(
                             pkgs={
                                 "gunicorn": latest,
                                 "tenacity": "==5.0.1",
-                                "protobuf": "==3.0.0",
+                                "protobuf": "~=3.0.0",
                                 "gevent": "==1.4.0",
                                 "greenlet": "==0.4.16",
                             },
@@ -367,7 +367,7 @@ venv = Venv(
                             pkgs={
                                 "gunicorn": latest,
                                 "tenacity": "==5.0.1",
-                                "protobuf": "==3.0.0",
+                                "protobuf": "~=3.0.0",
                                 "gevent": "==20.6.1",
                                 "greenlet": "==0.4.16",
                             },

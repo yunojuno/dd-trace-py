@@ -7,6 +7,7 @@ import tempfile
 import time
 
 import pytest
+from six import PY2
 
 from tests.contrib.uwsgi import run_uwsgi
 
@@ -37,6 +38,7 @@ def uwsgi(monkeypatch):
         os.unlink(socket_name)
 
 
+@pytest.mark.skipif(PY2, reason="uwsgi does not support riot virtual environments")
 def test_uwsgi_threads_disabled(uwsgi):
     proc = uwsgi()
     stdout, _ = proc.communicate()
@@ -47,6 +49,7 @@ def test_uwsgi_threads_disabled(uwsgi):
     )
 
 
+@pytest.mark.skipif(PY2, reason="uwsgi does not support riot virtual environments")
 def test_uwsgi_threads_enabled(uwsgi, tmp_path, monkeypatch):
     filename = str(tmp_path / "uwsgi.pprof")
     monkeypatch.setenv("DD_PROFILING_OUTPUT_PPROF", filename)
@@ -61,6 +64,7 @@ def test_uwsgi_threads_enabled(uwsgi, tmp_path, monkeypatch):
         utils.check_pprof_file("%s.%d.1" % (filename, pid))
 
 
+@pytest.mark.skipif(PY2, reason="uwsgi does not support riot virtual environments")
 def test_uwsgi_threads_processes_no_master(uwsgi, monkeypatch):
     proc = uwsgi("--enable-threads", "--processes", "2")
     stdout, _ = proc.communicate()
@@ -90,6 +94,7 @@ def _get_worker_pids(stdout, num_worker, num_app_started=1):
     return worker_pids
 
 
+@pytest.mark.skipif(PY2, reason="uwsgi does not support riot virtual environments")
 def test_uwsgi_threads_processes_master(uwsgi, tmp_path, monkeypatch):
     filename = str(tmp_path / "uwsgi.pprof")
     monkeypatch.setenv("DD_PROFILING_OUTPUT_PPROF", filename)
@@ -106,6 +111,7 @@ def test_uwsgi_threads_processes_master(uwsgi, tmp_path, monkeypatch):
 
 # This test fails with greenlet 2: the uwsgi.atexit function that is being called and run the profiler stop procedure is
 # interrupted randomly in the middle and has no time to flush out the profile.
+@pytest.mark.skipif(PY2, reason="uwsgi does not support riot virtual environments")
 @pytest.mark.skipif(TESTING_GEVENT, reason="Test fails with greenlet 2")
 def test_uwsgi_threads_processes_master_lazy_apps(uwsgi, tmp_path, monkeypatch):
     filename = str(tmp_path / "uwsgi.pprof")
@@ -154,7 +160,9 @@ def test_uwsgi_threads_processes_master_lazy_apps(uwsgi, tmp_path, monkeypatch):
 )
 # This test fails with greenlet 2: the uwsgi.atexit function that is being called and run the profiler stop procedure is
 # interrupted randomly in the middle and has no time to flush out the profile.
-@pytest.mark.skipif(TESTING_GEVENT, reason="Test fails with greenlet 2")
+@pytest.mark.skipif(
+    TESTING_GEVENT or PY2, reason="Test fails with greenlet 2 and uwsgi does not support riot virtual environments"
+)
 def test_uwsgi_threads_processes_no_master_lazy_apps(uwsgi, tmp_path, monkeypatch):
     filename = str(tmp_path / "uwsgi.pprof")
     monkeypatch.setenv("DD_PROFILING_OUTPUT_PPROF", filename)
