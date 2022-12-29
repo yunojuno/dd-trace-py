@@ -297,12 +297,9 @@ venv = Venv(
         ),
         Venv(
             name="profiler",
-            # unpin py-cpuinfo after issue is closed https://github.com/workhorsy/py-cpuinfo/issues/177
-            # TODO: remove py dependency once https://github.com/ionelmc/pytest-benchmark/pull/227 is released
             pkgs={
-                "py": latest,
                 "pytest-benchmark": latest,
-                "py-cpuinfo": "==8.0.0",
+                "gunicorn": latest,
                 **({} if sys.platform == "win32" else {"uwsgi": latest}),
             },
             env={"DD_REMOTE_CONFIGURATION_ENABLED": "false"},
@@ -311,15 +308,25 @@ venv = Venv(
                     pys="2.7",
                     command="python -m tests.profiling.run pytest --capture=no --verbosity=2 --benchmark-disable"
                     " --ignore-glob='*asyncio*' {cmdargs} tests/profiling",
-                    pkgs={"enum34": latest},
+                    pkgs={
+                        # py-cpuinfo dropped support for python 2
+                        "py-cpuinfo": "==8.0.0",
+                        # Install required ddtrace packages
+                        "enum34": latest,
+                        "jsonschema": "~=3.2.0",
+                        "ipaddress": "~=1.0.0",
+                        "cattrs": "~=0.9.0",
+                    },
                     venvs=[
                         # profiler with minreqs
                         # https://github.com/gevent/gevent/issues/1674
                         Venv(
+                            # PY2: uwsgi tests fail with riot venvs, use real virtual environments instead
+                            create=True,
                             pkgs={
                                 "gunicorn": latest,
                                 "tenacity": "==5.0.1",
-                                "protobuf": "~=3.0.0",
+                                "protobuf": "==3.0.0",
                                 "gevent": "==1.1.0",
                                 "greenlet": "==0.4.16",
                             },
@@ -327,6 +334,8 @@ venv = Venv(
                         ),
                         # profiler with latest reqs
                         Venv(
+                            # PY2: uwsgi tests fail with riot venvs, use real virtual environments instead
+                            create=True,
                             pkgs={
                                 "gunicorn[gevent]": latest,
                                 "protobuf": "~=3.17.3",
@@ -334,8 +343,10 @@ venv = Venv(
                             },
                             env={"DD_PROFILE_TEST_GEVENT": "1"},
                         ),
-                        # profiler with nogevent
+                        # profiler with no gevent
                         Venv(
+                            # PY2: uwsgi tests fail with riot venvs, use real virtual environments instead
+                            create=True,
                             pkgs={
                                 "gunicorn": latest,
                                 "protobuf": "~=3.17.3",
@@ -356,7 +367,7 @@ venv = Venv(
                             pkgs={
                                 "gunicorn": latest,
                                 "tenacity": "==5.0.1",
-                                "protobuf": "~=3.0.0",
+                                "protobuf": "==3.0.0",
                                 "gevent": "==1.4.0",
                                 "greenlet": "==0.4.16",
                             },
@@ -367,7 +378,7 @@ venv = Venv(
                             pkgs={
                                 "gunicorn": latest,
                                 "tenacity": "==5.0.1",
-                                "protobuf": "~=3.0.0",
+                                "protobuf": "==3.0.0",
                                 "gevent": "==20.6.1",
                                 "greenlet": "==0.4.16",
                             },
