@@ -31,6 +31,7 @@ def _es_modules():
         "elasticsearch5",
         "elasticsearch6",
         "elasticsearch7",
+        "elasticsearch8",
     )
     for module_name in module_names:
         try:
@@ -48,6 +49,13 @@ def patch():
 def _patch(elasticsearch):
     if getattr(elasticsearch, "_datadog_patch", False):
         return
+    # This 'primes' the pump with ES8 - loading Transport from
+    # elasticsearch_transport. HACK for #3482
+    try:
+        from elasticsearch.transport import Transport
+    except ImportError:
+        pass
+
     setattr(elasticsearch, "_datadog_patch", True)
     _w(elasticsearch.transport, "Transport.perform_request", _get_perform_request(elasticsearch))
     Pin().onto(elasticsearch.transport.Transport)
